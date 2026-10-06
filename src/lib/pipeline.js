@@ -13,11 +13,12 @@
 
 import { fetchTokens, fetchLatestProfiles, fetchLatestBoosts, tokenView } from './dexscreener.js';
 import { fetchFreshPumpCoins, fetchRugReport, curveProgress, isOnCurve, PUMP_SUFFIX } from './pumpfun.js';
+import { buildFeeds, momentumScore } from './feeds.js';
 import { STABLE_MINTS } from './helius.js';
 import { fmtUsd } from './paper.js';
 import { floorEmit } from './floorBus.js';
 
-export const SCORE_WEIGHTS = { liquidity: 15, holders: 25, buyPressure: 30, curve: 15, age: 15 };
+export const SCORE_WEIGHTS = { liquidity: 15, holders: 25, buyPressure: 30, curve: 15, age: 15, momentum: 10 };
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const logScale = (v, lo, hi) => {
@@ -48,16 +49,34 @@ export async function scanTokens() {
   if (!batch.length) return { candidates: [], discovered: 0 };
 
   const raw = await fetchTokens(batch);
+  // Enriched view per address (tokenView + chain for the feed engine).
+  const enriched = new Map();
+  for (const a of batch) {
+    const pair = raw[a];
+    if (!pair) continue;
+    const t = tokenView(pair);
+    if (t) enriched.set(a, { ...t, chainId: pair.chainId || null });
+  }
+  // v3.3 feed engine: NEW / TRENDING / MOVERS tags + raw UI rows (additive).
+  // MOVERS snapshots record this cycle's mc/vol into the local rolling store.
+  const { tags, movers, rows } = buildFeeds({ fresh, profiles, boosts, enriched });
+  try { floorEmit('feeds.ready', rows); } catch { /* fail-open */ }
   const candidates = [];
   for (const a of batch) {
     const pair = raw[a];
-    if (!isPumpOrigin(a, pair)) continue;      // pump.fun universe only
+    const tagList = tags.get(a) || [];
+    const fromFeed = tagList.includes('trending') || tagList.includes('movers');
+    const chainOk = !pair || !pair.chainId || pair.chainId === 'solana';
+    // NEW keeps the pump-mint preference; TRENDING/MOVERS are chain-agnostic
+    // within Solana (graduated / non-pump coins eligible).
+    if (!isPumpOrigin(a, pair) && !(fromFeed && chainOk)) continue;
     if (STABLE_MINTS.has(a)) continue;
-    const t = tokenView(pair);
+    const t = enriched.get(a);
     if (!t || !t.price || !t.mc) continue;
     const m = meta.get(a) || {};
     const graduated = !isOnCurve(pair);
     const turnover = t.vol24h && t.mc ? t.vol24h / t.mc : 0;
+    const mv = movers.get(a);
     candidates.push({
       ...t,
       source: m.source || 'pump',
@@ -68,6 +87,11 @@ export async function scanTokens() {
       createdAt: m.createdAt || t.createdAt,
       graduated,
       curvePct: graduated ? 100 : curveProgress(t.mc),
+      feeds: tagList,                                   // v3.3: feed tags
+      trendScore: tagList.includes('trending')
+        ? (t.vol24h || 0) * ((t.buys24h || 0) + (t.sells24h || 0)) : null,
+      moverPct: mv ? mv.moverPct : null,                // v3.3: local momentum
+      volAccel: mv ? mv.volAccel : null,
     });
   }
   candidates.sort((a, b) => b.turnover - a.turnover);
@@ -167,7 +191,12 @@ export function scoreToken(t, dossier, cfg) {
     age = ageH <= 6 ? 70 + 30 * (ageH / 6) : clamp(100 - ((ageH - 6) / Math.max(maxH - 6, 1)) * 100, 0, 100);
   }
 
-  const parts = { liquidity, holders, buyPressure, curve, age };
+  // v3.3: feed momentum — movers-tagged candidates carry their locally
+  // computed % mcap change; trending-tagged get a mild bump. Null when the
+  // token carries no feed tag (renormalizes out, like every other unknown).
+  const momentum = momentumScore(t);
+
+  const parts = { liquidity, holders, buyPressure, curve, age, momentum };
   let num = 0, den = 0;
   for (const k of Object.keys(SCORE_WEIGHTS)) {
     if (parts[k] != null) { num += SCORE_WEIGHTS[k] * parts[k]; den += SCORE_WEIGHTS[k]; }

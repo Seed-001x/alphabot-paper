@@ -9,6 +9,7 @@ import { subscribeResearch } from '../lib/research.js';
 import { SCORE_WEIGHTS } from '../lib/pipeline.js';
 import { fmtUsd, fmtClock } from '../lib/paper.js';
 import MiniBrowser from './MiniBrowser.jsx';
+import FeedsPanel from './FeedsPanel.jsx';
 import { useDeskStats, SeatStrip, TheFloor, BottomPanels } from './Floor.jsx';
 
 const short = (a) => (a && a.length > 10 ? `${a.slice(0, 4)}…${a.slice(-4)}` : (a || '?'));
@@ -58,7 +59,7 @@ function CommandHeader({ stats, equityArr, openCount, scanned, signalCount, now,
 
 // ------------------------------------------------------------ live activity
 // Compact dense event stream. TAP a row → expands full detail.
-const BRK_LABELS = { liquidity: 'LIQ', holders: 'HOLD', buyPressure: 'BUY', curve: 'CURVE', age: 'AGE' };
+const BRK_LABELS = { liquidity: 'LIQ', holders: 'HOLD', buyPressure: 'BUY', curve: 'CURVE', age: 'AGE', momentum: 'MOM' };
 
 function SignalDetail({ mint, signals }) {
   const s = (signals || []).filter(x => x.mint === mint).sort((a, b) => b.ts - a.ts)[0];
@@ -288,6 +289,7 @@ export default function CommandCenter({ portfolio, priceMap, stats, now, paused,
           now={now}
         />
         <BottomPanels d={d} equityArr={portfolio.equity} bankroll0={portfolio.bankroll0} />
+        <FeedsPanel />
         <LiveActivity signals={signals} onStats={setCounts} />
       </main>
     </>
