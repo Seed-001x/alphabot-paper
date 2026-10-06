@@ -9,6 +9,7 @@ import { fetchTokens, tokenView } from './lib/dexscreener.js';
 import { isOnCurve, curveProgress } from './lib/pumpfun.js';
 import { scanTokens, freeKill, tradeKill, vetToken } from './lib/pipeline.js';
 import { researchToken } from './lib/research.js';
+import { warmCalloutCache } from './lib/callouts.js';
 import { judgeToken } from './lib/aiJudge.js';
 import { startFlowWatch } from './lib/flowWatch.js';
 import { floorEmit } from './lib/floorBus.js';
@@ -205,6 +206,7 @@ export default function App() {
       let researched = scoredList;
       if (scoredList.length) {
         setSeat('research', { working: true, val: '…', sub: `researching ${scoredList.length}` });
+        warmCalloutCache(); // v3.4: fetch callout channel previews once per cycle
         researched = await mapPool(scoredList, 3, async ({ t, v }) => {
           const research = await researchToken(t, v.dossier);
           // AI JUDGE seat: judgment numbers only, after keyword research.
@@ -220,7 +222,7 @@ export default function App() {
       const scoredVals = [];
       for (const { t, v, research, judge } of researched) {
         scored++;
-        // Combined research budget stays ±10 (keyword research + AI judge).
+        // Combined research budget stays ±10 (keyword research + callouts + AI judge).
         const combinedMod = Math.max(-10, Math.min(10, (research.modifier || 0) + (judge.modifier || 0)));
         scoredVals.push(Math.max(0, Math.min(100, v.score + combinedMod)));
         let eliteHit = false;
@@ -233,6 +235,7 @@ export default function App() {
           p, {
             t, ...v, eliteHit, flowTag: !!t.flowTag,
             researchMod: combinedMod, researchLine: research.line,
+            calloutLine: research.calloutLine || null,
             judgeMod: judge.modifier || 0, judgeLine: judge.line,
           },
           cfg, { silent: true });

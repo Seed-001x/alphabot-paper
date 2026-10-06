@@ -85,6 +85,7 @@ function SignalDetail({ mint, signals }) {
         </div>
       )}
       {!killed && s.researchLine && <div className="la-drow dim">⟁ research {s.researchMod >= 0 ? '+' : ''}{s.researchMod} — {s.researchLine}</div>}
+      {!killed && s.calloutLine && <div className="la-drow dim">📣 {s.calloutLine}</div>}
       {!killed && s.judgeLine && s.judgeLine !== 'no key' && <div className="la-drow dim">⚖ judge {s.judgeMod >= 0 ? '+' : ''}{s.judgeMod} — {s.judgeLine}</div>}
       {s.dossier && s.dossier.topPct != null && (
         <div className="la-drow dim">top {s.dossier.topPct.toFixed(1)}% · top10 {s.dossier.top10Pct != null ? s.dossier.top10Pct.toFixed(1) : '?'}%</div>

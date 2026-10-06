@@ -21,6 +21,7 @@
 // Hard budgets: 8s per fetch, 20s total per candidate.
 
 import { fetchTokens } from './dexscreener.js';
+import { calloutCheck } from './callouts.js';
 import { floorEmit } from './floorBus.js';
 
 const FETCH_MS = 8000;
@@ -604,13 +605,41 @@ async function researchInner(t, dossier) {
     }
   }
 
+  // (d) CALLOUT DETECTION (v3.4): public Telegram callout channels via
+  // t.me/s previews (r.jina.ai). Previews fetched ONCE per cycle (module
+  // cache in callouts.js); survivors match by symbol or mint prefix.
+  // +3 per distinct channel, max +6. Marked unverified — a mention is not
+  // an endorsement. Never kills/gates; the clamp below keeps the ±10 budget.
+  let calloutLine = null;
+  if (Date.now() < deadline) {
+    try {
+      const co = await calloutCheck(t);
+      bumpStats({ checks: stats.checks + 1 });
+      if (co.points > 0) {
+        modifier += co.points;
+        bits.push(co.line);
+        calloutLine = co.calloutLine;
+        rlog(`  └ callouts → ${co.line}`, 'grn');
+        floorEmit('callout.hit', {
+          mint: t.address, symbol: t.symbol, name: t.name,
+          channels: co.hits.map(h => h.channel), points: co.points,
+        });
+      } else {
+        bits.push('callouts: none');
+        rlog('  └ callouts → no mention in tracked channels', 'dim');
+      }
+    } catch {
+      bits.push('callouts: ?');
+    }
+  }
+
   modifier = Math.max(-10, Math.min(10, modifier));
   bumpStats({ dossiers: stats.dossiers + 1 });
   const arrow = modifier > 0 ? `+${modifier}` : `${modifier}`;
   const tone = modifier > 0 ? 'grn' : modifier < 0 ? 'red' : 'dim';
   rlog(`▸ ${tag} · ${bits.join(' · ')} → ${arrow}`, tone);
   floorEmit('research.done', { mint: t.address, symbol: t.symbol, name: t.name, modifier, line: bits.join(' · ') });
-  return { modifier, line: bits.join(' · '), checks: bits.length };
+  return { modifier, line: bits.join(' · '), checks: bits.length, calloutLine };
 }
 
 export async function researchToken(t, dossier) {
@@ -619,6 +648,6 @@ export async function researchToken(t, dossier) {
   } catch {
     rlog(`▸ ${short(t.address)} ${t.symbol || '???'} · research timeout → +0`, 'dim');
     floorEmit('research.done', { mint: t.address, symbol: t.symbol, name: t.name, modifier: 0, line: 'no data' });
-    return { modifier: 0, line: 'no data', checks: 0 };
+    return { modifier: 0, line: 'no data', checks: 0, calloutLine: null };
   }
 }
