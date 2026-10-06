@@ -3,12 +3,13 @@ import { useState } from 'react';
 import { RISK_META } from '../lib/config.js';
 import { getKey, setKey, clearKey } from '../lib/helius.js';
 import { getFlowStats } from '../lib/flowWatch.js';
+import { lastSolPrice } from '../lib/dexscreener.js';
 import { getAiKey, setAiKey, clearAiKey, getJudgeStats } from '../lib/aiJudge.js';
 import { resetLearning } from '../lib/learning.js';
 import { statsFor, fmtUsd, fmtPct } from '../lib/paper.js';
 
 const ORDER = [
-  'bankroll0', 'minTokenScore',
+  'bankrollSol', 'minTokenScore',
   'minLiquidityUsd', 'minVol24hUsd', 'minMc', 'maxMc', 'minAgeMin', 'maxAgeDays',
   'minBuys24h', 'maxTopHolderPct', 'maxTop10Pct', 'eliteBoost',
   'maxPositions', 'solSizeBase', 'solSizeMid', 'solSizeTop', 'whaleMcUsd', 'whaleTurnoverMin', 'whaleSolSize', 'earlyMcUsd', 'earlyMinScore', 'earlySolSize', 'takeProfit', 'stopLoss', 'trailingStop', 'maxHoldHours', 'cooldownMin',
@@ -70,7 +71,7 @@ export default function Settings({ open, onClose, config, onConfig, portfolio, p
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           <button className={'btn' + (paused ? ' on' : '')} onClick={onTogglePaused} disabled={readOnly} title={readOnly ? 'read-only in server mode' : undefined}>{paused ? '▶ Resume desk' : '❚❚ Pause desk'}</button>
-          <button className="btn" disabled={readOnly} title={readOnly ? 'read-only in server mode' : undefined} onClick={() => { if (window.confirm('Reset the paper portfolio? This wipes positions, trades and the equity curve.')) onReset(config.bankroll0); }}>↺ Reset</button>
+          <button className="btn" disabled={readOnly} title={readOnly ? 'read-only in server mode' : undefined} onClick={() => { if (window.confirm('Reset the paper portfolio? This wipes positions, trades and the equity curve.')) onReset(); }}>↺ Reset</button>
           <button className="btn" disabled={readOnly} title={readOnly ? 'read-only in server mode' : undefined} onClick={() => { if (window.confirm('Reset learning? This wipes the kill ledger, trade journal and adapted weights. The desk starts collecting data from scratch.')) { resetLearning(); window.location.reload(); } }}>🧠 Reset learning</button>
           <button className="btn grn" onClick={onClose}>Done</button>
         </div>
@@ -163,9 +164,14 @@ export default function Settings({ open, onClose, config, onConfig, portfolio, p
         {ORDER.map(k => {
           const meta = RISK_META[k];
           if (!meta) return null;
+          // v3.8: bankroll row shows the SOL book plus its USD equivalent at
+          // the current (last-known) SOL price.
+          const usdNote = k === 'bankrollSol' && config[k] != null
+            ? (() => { const spx = lastSolPrice(); return spx ? ` ≈ ${fmtUsd(config[k] * spx)} at $${Math.round(spx)}/SOL` : ''; })()
+            : '';
           return (
             <div key={k} className="cfg-row">
-              <label>{meta.label} <small>{meta.hint} · {meta.unit}</small></label>
+              <label>{meta.label} <small>{meta.hint} · {meta.unit}{usdNote}</small></label>
               <input
                 type="number"
                 value={dispVal(k)}

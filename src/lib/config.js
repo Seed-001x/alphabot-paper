@@ -2,7 +2,8 @@
 // Money is virtual (paper trading). Nothing here promises profit.
 
 export const DEFAULT_CONFIG = {
-  bankroll0: 10000,  // v3.8: $10k virtual — 2.5 SOL whale-ape ≈ $500 = 5%
+  bankrollSol: 5,    // v3.8: SOL-denominated book — 5 SOL virtual (whale-ape 2.5 SOL = 50% of book, user's chosen aggression)
+  bankroll0: 1000,   // USD fallback ONLY if bankrollSol is unset — applies on reset
   // --- SCAN / VET (kill chain, ascending cost) — pump.fun tuned ---
   minTokenScore: 65,      // entry: token score must clear this (after elite boost)
   minLiquidityUsd: 3000,
@@ -51,7 +52,7 @@ export const DEFAULT_CONFIG = {
 };
 
 export const RISK_META = {
-  bankroll0: { label: 'Starting bankroll', unit: 'USD', min: 10, max: 1000000, hint: 'Applies on reset only. Virtual money.' },
+  bankrollSol: { label: 'Starting bankroll', unit: 'SOL', min: 0.1, max: 100, hint: 'Applies on reset only. Virtual SOL — USD book value set at live SOL price.' },
   minTokenScore: { label: 'Min token score', unit: '0–100', min: 0, max: 100, hint: 'Entry bar for the 0–100 token score (after elite boost).' },
   minLiquidityUsd: { label: 'Min liquidity', unit: 'USD', min: 0, max: 1000000, hint: 'Free-kill floor.' },
   minVol24hUsd: { label: 'Min 24h volume', unit: 'USD', min: 0, max: 5000000, hint: 'Free-kill floor.' },

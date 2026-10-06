@@ -6,37 +6,51 @@
 import { STABLE_MINTS } from './helius.js';
 import { floorEmit } from './floorBus.js';
 import { exitPolicy, getExitRules } from './exits.js';
+import { lastSolPrice } from './dexscreener.js';
 
 // ------------------------------------------------------------ portfolio
 
 const PKEY = 'alphabot_portfolio_v2';
 const PAUSED_KEY = 'alphabot_paused_v2';
 
-export function freshPortfolio(bankroll0) {
+export function freshPortfolio(bankrollUsd, bankrollSol) {
   return {
-    bankroll0, cash: bankroll0,
-    equity: [{ ts: Date.now(), v: bankroll0 }],
+    bankroll0: bankrollUsd, cash: bankrollUsd,
+    bankrollSol: bankrollSol != null ? bankrollSol : null,  // v3.8: SOL-denominated book
+    solPriceAtCreation: null,  // filled by freshPortfolioFor
+    equity: [{ ts: Date.now(), v: bankrollUsd }],
     positions: [],   // open: {mint,symbol,name,entryMc,entryPrice,entryTs,sizeUsd,solSize,tokens,peakMultiple,score,eliteHit}
     closed: [],      // newest first
     signals: [],     // newest first, capped — KILLED + SCORED verdicts
     cooldowns: {},   // mint -> ts
     createdAt: Date.now(),
-    version: 4,      // v3.8: whale-ape sizing + $10k bankroll — fresh paper portfolio
+    version: 5,      // v3.8: 5-SOL SOL-denominated book — fresh paper portfolio
   };
 }
-export function loadPortfolio(cfg) {
+// Resolve a SOL-denominated bankroll to USD at creation. spx = live price when
+// available (reset button fetches once), else last-known, else 150 fallback.
+// bankrollSol unset → legacy USD fallback cfg.bankroll0.
+export function freshPortfolioFor(cfg, spx) {
+  const sol = cfg.bankrollSol != null ? cfg.bankrollSol : null;
+  const price = (spx && spx > 0) ? spx : (lastSolPrice() || 150);
+  const usd = sol != null ? sol * price : (cfg.bankroll0 || 1000);
+  const p = freshPortfolio(usd, sol);
+  p.solPriceAtCreation = price;
+  return p;
+}
+export function loadPortfolio(cfg, spx) {
   try {
     const raw = localStorage.getItem(PKEY);
     if (raw) {
       const p = JSON.parse(raw);
-      if (p && Array.isArray(p.positions) && p.version === 4) return p;
+      if (p && Array.isArray(p.positions) && p.version === 5) return p;
     }
   } catch {}
-  return freshPortfolio(cfg.bankroll0);
+  return freshPortfolioFor(cfg, spx);
 }
 export function savePortfolio(p) { try { localStorage.setItem(PKEY, JSON.stringify(p)); } catch {} }
-export function resetPortfolio(bankroll0) {
-  const p = freshPortfolio(bankroll0);
+export function resetPortfolio(cfg, spx) {
+  const p = freshPortfolioFor(cfg, spx);
   savePortfolio(p);
   return p;
 }

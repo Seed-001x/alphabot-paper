@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { loadConfig, saveConfig } from './lib/config.js';
 import { getKey, STABLE_MINTS } from './lib/helius.js';
-import { fetchTokens, tokenView, solPrice } from './lib/dexscreener.js';
+import { fetchTokens, tokenView, solPrice, lastSolPrice } from './lib/dexscreener.js';
 import { isOnCurve, curveProgress } from './lib/pumpfun.js';
 import { scanTokens, freeKill, tradeKill, vetToken } from './lib/pipeline.js';
 import { researchToken } from './lib/research.js';
@@ -56,7 +56,7 @@ async function fetchEliteSwaps(key) {
 
 export default function App() {
   const [config, setConfig] = useState(loadConfig);
-  const [portfolio, setPortfolio] = useState(() => loadPortfolio(loadConfig()));
+  const [portfolio, setPortfolio] = useState(() => loadPortfolio(loadConfig(), lastSolPrice()));
   const [paused, setPausedState] = useState(isPaused());
   const [priceMap, setPriceMap] = useState({});
   const [seats, setSeats] = useState({});
@@ -481,8 +481,12 @@ export default function App() {
     setPausedState(next);
   }
 
-  function doReset(bankroll0) {
-    const p = resetPortfolio(bankroll0);
+  async function doReset() {
+    // v3.8: SOL-denominated book — fetch live SOL once so the USD book value
+    // is honest at creation. Falls back through last-known → 150.
+    let spx = null;
+    try { spx = await solPrice(); } catch { spx = null; }
+    const p = resetPortfolio(config, spx);
     portfolioRef.current = p;
     loggedRef.current = new Map();
     eliteSwapsRef.current = null;

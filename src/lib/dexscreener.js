@@ -40,15 +40,29 @@ export async function fetchTokens(mints) {
 }
 
 let solCache = { price: null, ts: 0 };
+const SOLPX_KEY = 'alphabot_solprice_v1';
+// Last-known SOL price (persisted across reloads) — used to value the
+// SOL-denominated paper book at creation when no fresh fetch is available.
+export function lastSolPrice() {
+  try {
+    const raw = localStorage.getItem(SOLPX_KEY);
+    if (raw) { const o = JSON.parse(raw); if (o && o.price > 0) return o.price; }
+  } catch {}
+  return solCache.price || null;
+}
 export async function solPrice() {
   if (Date.now() - solCache.ts < 120000 && solCache.price) return solCache.price;
   try {
     const r = await fetch(`${BASE}/So11111111111111111111111111111111111111112`);
     const pairs = await r.json();
     const p = (pairs || [])[0];
-    if (p && p.priceUsd) { solCache = { price: +p.priceUsd, ts: Date.now() }; return solCache.price; }
+    if (p && p.priceUsd) {
+      solCache = { price: +p.priceUsd, ts: Date.now() };
+      try { localStorage.setItem(SOLPX_KEY, JSON.stringify({ price: solCache.price, ts: solCache.ts })); } catch {}
+      return solCache.price;
+    }
   } catch {}
-  return solCache.price || 150;
+  return solCache.price || lastSolPrice() || 150;
 }
 
 // SCAN source 1: latest token profiles (new listings), Solana only.
