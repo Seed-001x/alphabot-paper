@@ -295,6 +295,10 @@ export function getJudgeContext(t) {
 }
 
 // ------------------------------------------------------- brain + reset
+export function readJournal() {
+  try { return loadArr(TRADE_KEY); } catch { return []; }
+}
+
 export function getBrainStats() {
   try {
     const js = journalStats();

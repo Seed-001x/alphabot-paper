@@ -5,6 +5,7 @@
 
 import { STABLE_MINTS } from './helius.js';
 import { floorEmit } from './floorBus.js';
+import { exitPolicy, getExitRules } from './exits.js';
 
 // ------------------------------------------------------------ portfolio
 
@@ -154,6 +155,10 @@ export function processResult(p, r, cfg, opts = {}) {
     entryMc, entryPrice, entryTs: now,
     sizeUsd, tokens, peakMultiple: 1,
     score: finalScore, eliteHit: !!r.eliteHit, flowTag: !!r.flowTag,
+    // v3.6 adaptive exits: profile context for the exit policy.
+    feeds: t.feeds || null,
+    buyPressure: (r.breakdown && r.breakdown.buyPressure) || null,
+    entryVol: t.vol24h || null,
   });
   sig.taken = true;
   sig.reason = `ENTER ${t.symbol} · score ${finalScore}${researchMod ? ` (${researchMod >= 0 ? '+' : ''}${researchMod} research)` : ''}${r.eliteHit ? ` (+${boost} smart flow)` : ''} · ${fmtUsd(sizeUsd)} @ ${fmtUsd(entryMc)} MC`;
@@ -172,6 +177,10 @@ export function tick(p, priceMap, eliteSwaps, cfg) {
   const now = Date.now();
   const closed = [];
   const keep = [];
+  // v3.6 — adaptive exits: journal-derived rules, computed once per tick.
+  // Empty/corrupt journal → base mechanical parameters (fail-open).
+  let rules = null;
+  try { rules = getExitRules(cfg); } catch { rules = null; }
   for (const pos of (p.positions || [])) {
     const t = priceMap[pos.mint];
     if (!t || !t.price || !t.mc) { keep.push(pos); continue; } // no quote — hold
@@ -179,15 +188,26 @@ export function tick(p, priceMap, eliteSwaps, cfg) {
     if (midMultiple > pos.peakMultiple) pos.peakMultiple = midMultiple;
 
     let reason = null;
-    if (midMultiple >= 1 + cfg.takeProfit) {
-      reason = `take-profit +${Math.round(cfg.takeProfit * 100)}%`;
-    } else if (midMultiple <= 1 - cfg.stopLoss) {
-      reason = `stop-loss −${Math.round(cfg.stopLoss * 100)}%`;
-    } else if (pos.peakMultiple >= 1 + cfg.trailingArmAt && midMultiple <= pos.peakMultiple * (1 - cfg.trailingStop)) {
-      reason = `trailing stop −${Math.round(cfg.trailingStop * 100)}% from peak`;
-    } else if (now - pos.entryTs >= cfg.maxHoldHours * 3600e3) {
-      reason = `max hold ${cfg.maxHoldHours}h reached`;
-    } else if (eliteSwaps) {
+    let learned = false;
+    if (rules) {
+      try {
+        const pol = exitPolicy(pos, t, cfg, rules);
+        if (pol) { reason = pol.reason; learned = pol.learned; }
+      } catch { /* policy error → mechanical fallback below */ }
+    }
+    if (!reason) {
+      // Mechanical base exits (also the fail-open fallback).
+      if (midMultiple >= 1 + cfg.takeProfit) {
+        reason = `take-profit +${Math.round(cfg.takeProfit * 100)}%`;
+      } else if (midMultiple <= 1 - cfg.stopLoss) {
+        reason = `stop-loss −${Math.round(cfg.stopLoss * 100)}%`;
+      } else if (pos.peakMultiple >= 1 + cfg.trailingArmAt && midMultiple <= pos.peakMultiple * (1 - cfg.trailingStop)) {
+        reason = `trailing stop −${Math.round(cfg.trailingStop * 100)}% from peak`;
+      } else if (now - pos.entryTs >= cfg.maxHoldHours * 3600e3) {
+        reason = `max hold ${cfg.maxHoldHours}h reached`;
+      }
+    }
+    if (!reason && eliteSwaps) {
       // Smart-flow exit: ≥2 sells seen this token since entry.
       let sellers = 0;
       const names = [];
@@ -220,6 +240,7 @@ export function tick(p, priceMap, eliteSwaps, cfg) {
     floorEmit('risk.exit', {
       mint: pos.mint, symbol: pos.symbol, name: pos.name,
       exitReason: reason, pnlUsd: pnl, multiple: pos.sizeUsd > 0 ? proceeds / pos.sizeUsd : 1,
+      learned: !!learned, // v3.6: distinct UI tag when a learned exit fires
     });
   }
   p.positions = keep;

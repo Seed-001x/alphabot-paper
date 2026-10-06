@@ -142,7 +142,7 @@ function DetailBody({ item, signals }) {
     case 'exit':
       return (
         <div>
-          <div className="la-drow"><b>{item.symbol}</b> <span className={item.pnlUsd >= 0 ? 'grn' : 'red'}>{item.pnlUsd >= 0 ? '+' : ''}{fmtUsd(item.pnlUsd)}</span></div>
+          <div className="la-drow"><b>{item.symbol}</b> <span className={item.pnlUsd >= 0 ? 'grn' : 'red'}>{item.pnlUsd >= 0 ? '+' : ''}{fmtUsd(item.pnlUsd)}</span>{item.learned && <span className="adapt-tag" title="exit rule learned from the trade journal">🧠 learned exit</span>}</div>
           <div className="la-drow dim">{item.exitReason}</div>
         </div>
       );
@@ -214,7 +214,7 @@ function LiveActivity({ signals, onStats }) {
           push({ kind: 'dim', dot: '', line: `${sym} skipped`, mint: ev.mint, symbol: sym, detail: 'signal' });
           break;
         case 'risk.exit':
-          push({ kind: 'exit', dot: 'red', line: `${sym} exit`, mint: ev.mint, symbol: sym, detail: 'exit', exitReason: ev.exitReason, pnlUsd: ev.pnlUsd });
+          push({ kind: 'exit', dot: ev.learned ? 'mag' : 'red', line: `${sym} exit${ev.learned ? ' 🧠' : ''}`, mint: ev.mint, symbol: sym, detail: 'exit', exitReason: ev.exitReason, pnlUsd: ev.pnlUsd, learned: !!ev.learned });
           break;
         case 'flow.inject':
           push({ kind: 'flow', dot: 'mag', line: `smart flow → coin entered DD`, mint: ev.mint, symbol: sym, detail: 'signal' });

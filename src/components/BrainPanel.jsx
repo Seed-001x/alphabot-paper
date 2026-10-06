@@ -4,7 +4,9 @@
 // trades). Denser command-center styling, small technical type.
 import { useEffect, useState } from 'react';
 import { getBrainStats, getAdaptiveWeights, MIN_KILLS, MIN_TRADES } from '../lib/learning.js';
+import { getExitRules, EXIT_MIN_TRADES } from '../lib/exits.js';
 import { SCORE_WEIGHTS } from '../lib/pipeline.js';
+import { loadConfig } from '../lib/config.js';
 import { fmtUsd } from '../lib/paper.js';
 
 const COMP_LABELS = { liquidity: 'LIQ', holders: 'HOLD', buyPressure: 'BUY', curve: 'CURVE', age: 'AGE', momentum: 'MOM' };
@@ -12,16 +14,18 @@ const COMP_LABELS = { liquidity: 'LIQ', holders: 'HOLD', buyPressure: 'BUY', cur
 function useBrain() {
   const [b, setB] = useState(() => getBrainStats());
   const [w, setW] = useState(() => getAdaptiveWeights(SCORE_WEIGHTS));
+  const [x, setX] = useState(() => { try { return getExitRules(loadConfig()); } catch { return null; } });
   useEffect(() => {
     const t = setInterval(() => {
       try {
         setB(getBrainStats());
         setW(getAdaptiveWeights(SCORE_WEIGHTS));
+        setX(getExitRules(loadConfig()));
       } catch { /* fail-open */ }
     }, 10000);
     return () => clearInterval(t);
   }, []);
-  return { b, w };
+  return { b, w, x };
 }
 
 export function useBrainStats() {
@@ -30,10 +34,30 @@ export function useBrainStats() {
 }
 
 export default function BrainPanel() {
-  const { b, w } = useBrain();
+  const { b, w, x } = useBrain();
   const collecting = b.collecting;
   const wr = b.winRate != null ? `${(b.winRate * 100).toFixed(0)}%` : '—';
   const avg = b.avgPnl != null ? `${b.avgPnl >= 0 ? '+' : ''}${b.avgPnl.toFixed(1)}%` : '—';
+  const exitRows = [];
+  if (x) {
+    exitRows.push({
+      k: 'runner-extension', label: 'runner extension',
+      state: x.runner.active ? `ACTIVE · n=${x.runner.n}` : `collecting · n=${x.runner.n}/5`,
+      on: x.runner.active,
+    });
+    exitRows.push({
+      k: 'dead-cut', label: 'dead-money cut',
+      state: x.deadCut.active ? `ACTIVE · n=${x.deadCut.n}` : `collecting · n=${x.deadCut.n}/5`,
+      on: x.deadCut.active,
+    });
+    const profN = Object.values(x.buckets).filter(bk => bk.adjusted).length;
+    const profTot = Object.keys(x.buckets).length;
+    exitRows.push({
+      k: 'stop-profile', label: 'stop profiling',
+      state: profN ? `ACTIVE · ${profN} bucket${profN > 1 ? 's' : ''}` : (x.ready ? `no bucket ≥5 yet` : `collecting · n=${x.n}/${EXIT_MIN_TRADES}`),
+      on: profN > 0,
+    });
+  }
   return (
     <section className="br-panel">
       <div className="br-head">
@@ -104,6 +128,21 @@ export default function BrainPanel() {
           ))}
         </div>
       )}
+      <div className="br-sub" style={{ padding: '8px 12px 0' }}>learned exit rules</div>
+      <div style={{ padding: '0 12px 4px' }}>
+        {exitRows.map(r => (
+          <div className="br-row" key={r.k}>
+            <span>{r.label}</span>
+            <b className={r.on ? 'grn' : ''}>{r.state}</b>
+          </div>
+        ))}
+        {x && Object.values(x.buckets).filter(bk => bk.adjusted).slice(0, 4).map(bk => (
+          <div className="br-row dim" key={bk.key}>
+            <span>⌞ {bk.key}</span>
+            <span>SL −{Math.round(bk.sl * 100)}% · TP +{Math.round(bk.tp * 100)}% · wr {(bk.winRate * 100).toFixed(0)}% (n={bk.n})</span>
+          </div>
+        ))}
+      </div>
       <div className="br-foot">local-only ledgers · never overrides hard kills · fail-open</div>
     </section>
   );

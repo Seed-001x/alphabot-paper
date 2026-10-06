@@ -22,13 +22,15 @@ export const DEFAULT_CONFIG = {
   maxTop10Pct: 70,        // top-10 share cap (%)
   eliteBoost: 8,          // score points added on smart-flow confirmation
   // --- TRADE (paper risk engine) ---
+  // v3.6 SCALP RETUNE: faster trades → more closed trades → journal fills
+  // quicker. TP +30%, SL −15%, trailing −12% arms +10%, 90-min max hold.
   maxPositions: 8,
   positionPct: 0.02,
-  takeProfit: 0.60,
-  stopLoss: 0.35,
-  trailingStop: 0.25,
-  trailingArmAt: 0.20,
-  maxHoldHours: 6,
+  takeProfit: 0.30,
+  stopLoss: 0.15,
+  trailingStop: 0.12,
+  trailingArmAt: 0.10,
+  maxHoldHours: 1.5,
   cooldownMin: 30,
   slippage: 0.05,
   // --- LOOP ---
