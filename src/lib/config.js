@@ -2,7 +2,7 @@
 // Money is virtual (paper trading). Nothing here promises profit.
 
 export const DEFAULT_CONFIG = {
-  bankroll0: 2500,   // v3.7: bigger virtual bankroll for SOL-denominated sizing
+  bankroll0: 10000,  // v3.8: $10k virtual — 2.5 SOL whale-ape ≈ $500 = 5%
   // --- SCAN / VET (kill chain, ascending cost) — pump.fun tuned ---
   minTokenScore: 65,      // entry: token score must clear this (after elite boost)
   minLiquidityUsd: 3000,
@@ -30,6 +30,14 @@ export const DEFAULT_CONFIG = {
   solSizeBase: 0.2,
   solSizeMid: 0.35,
   solSizeTop: 0.5,
+  // v3.8 WHALE-APE: mc > whaleMcUsd && vol24h/mc ≥ whaleTurnoverMin → whaleSolSize SOL
+  whaleMcUsd: 500000,
+  whaleTurnoverMin: 1.0,
+  whaleSolSize: 2.5,
+  // v3.8 EARLY-APE: mc < earlyMcUsd && score ≥ earlyMinScore → earlySolSize SOL
+  earlyMcUsd: 100000,
+  earlyMinScore: 80,
+  earlySolSize: 1.0,
   takeProfit: 0.30,
   stopLoss: 0.15,
   trailingStop: 0.12,
@@ -64,6 +72,12 @@ export const RISK_META = {
   solSizeBase: { label: 'Size · score 65–74', unit: 'SOL', min: 0.01, max: 5, hint: 'Position size for base-conviction entries.' },
   solSizeMid: { label: 'Size · score 75–84', unit: 'SOL', min: 0.01, max: 5, hint: 'Position size for mid-conviction entries.' },
   solSizeTop: { label: 'Size · score 85+', unit: 'SOL', min: 0.01, max: 5, hint: 'Position size for highest-conviction entries.' },
+  whaleMcUsd: { label: 'Whale MC trigger', unit: 'USD', min: 50000, max: 10000000, hint: 'Whale-ape: MC above this with high volume → whale size.' },
+  whaleTurnoverMin: { label: 'Whale volume trigger (turnover = vol24h/mc)', unit: 'ratio', min: 0.1, max: 10, hint: 'Whale-ape: 24h volume ÷ MC must clear this.' },
+  whaleSolSize: { label: 'Whale size', unit: 'SOL', min: 0.1, max: 10, hint: 'Position size for whale-ape entries (overrides score bands).' },
+  earlyMcUsd: { label: 'Early-ape MC ceiling', unit: 'USD', min: 10000, max: 1000000, hint: 'Early-ape: MC below this with a strong score → early size.' },
+  earlyMinScore: { label: 'Early-ape min score', unit: '0–100', min: 0, max: 100, hint: 'Early-ape: score must clear this.' },
+  earlySolSize: { label: 'Early-ape size', unit: 'SOL', min: 0.1, max: 10, hint: 'Position size for early-ape entries (overrides score bands).' },
   takeProfit: { label: 'Take profit', unit: '% gain', min: 5, max: 500, pct: true, hint: 'Exit when multiple hits this gain.' },
   stopLoss: { label: 'Stop loss', unit: '% drop', min: 5, max: 90, pct: true, hint: 'Exit when multiple drops this much.' },
   trailingStop: { label: 'Trailing stop', unit: '% from peak', min: 5, max: 80, pct: true, hint: 'Exit on this pullback from peak multiple.' },

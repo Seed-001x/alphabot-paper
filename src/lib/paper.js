@@ -21,7 +21,7 @@ export function freshPortfolio(bankroll0) {
     signals: [],     // newest first, capped — KILLED + SCORED verdicts
     cooldowns: {},   // mint -> ts
     createdAt: Date.now(),
-    version: 3,      // v3.7: SOL-denominated sizing — fresh paper portfolio
+    version: 4,      // v3.8: whale-ape sizing + $10k bankroll — fresh paper portfolio
   };
 }
 export function loadPortfolio(cfg) {
@@ -29,7 +29,7 @@ export function loadPortfolio(cfg) {
     const raw = localStorage.getItem(PKEY);
     if (raw) {
       const p = JSON.parse(raw);
-      if (p && Array.isArray(p.positions) && p.version === 3) return p;
+      if (p && Array.isArray(p.positions) && p.version === 4) return p;
     }
   } catch {}
   return freshPortfolio(cfg.bankroll0);
@@ -145,8 +145,19 @@ export function processResult(p, r, cfg, opts = {}) {
   // v3.7: SOL-denominated sizing scaled by conviction (score band).
   // 65–74 → solSizeBase · 75–84 → solSizeMid · 85+ → solSizeTop. USD accounting
   // stays; SOL price comes from opts (fetched once per cycle, cached 2m).
+  // v3.8 WHALE-APE RULE: anything over whaleMcUsd MC with high volume
+  // (turnover = vol24h/mc ≥ whaleTurnoverMin) gets whaleSolSize SOL — a whale
+  // setup is high-conviction by definition, so this overrides the bands.
+  // v3.8 EARLY-APE RULE: under earlyMcUsd MC with a strong score
+  // (≥ earlyMinScore) gets earlySolSize SOL — early + good = size up.
+  // Whale and early are mutually exclusive on mc; whale checked first.
   const spx = (opts && opts.solPrice) || 150;
-  const solSize = finalScore >= 85 ? cfg.solSizeTop
+  const turnover = (t.vol24h && t.mc) ? t.vol24h / t.mc : 0;
+  const isWhale = (t.mc || 0) > (cfg.whaleMcUsd || 500000) && turnover >= (cfg.whaleTurnoverMin || 1);
+  const isEarly = !isWhale && (t.mc || 0) < (cfg.earlyMcUsd || 100000) && finalScore >= (cfg.earlyMinScore || 80);
+  const solSize = isWhale ? (cfg.whaleSolSize || 2.5)
+    : isEarly ? (cfg.earlySolSize || 1.0)
+    : finalScore >= 85 ? cfg.solSizeTop
     : finalScore >= 75 ? cfg.solSizeMid : cfg.solSizeBase;
   const sizeUsd = Math.min(p.cash, (solSize || 0.2) * spx);
   if (!(sizeUsd > 1)) return gate(`cash too low (${fmtUsd(p.cash)})`);
@@ -167,10 +178,11 @@ export function processResult(p, r, cfg, opts = {}) {
     entryVol: t.vol24h || null,
   });
   sig.taken = true;
-  sig.reason = `ENTER ${t.symbol} · score ${finalScore}${researchMod ? ` (${researchMod >= 0 ? '+' : ''}${researchMod} research)` : ''}${r.eliteHit ? ` (+${boost} smart flow)` : ''} · ${(solSize || 0.2).toFixed(2)} SOL (${fmtUsd(sizeUsd)}) @ ${fmtUsd(entryMc)} MC`;
+  sig.reason = `ENTER ${t.symbol} · score ${finalScore}${researchMod ? ` (${researchMod >= 0 ? '+' : ''}${researchMod} research)` : ''}${r.eliteHit ? ` (+${boost} smart flow)` : ''}${isWhale ? ' 🐋 whale-ape' : ''}${isEarly ? ' ⚡ early-ape' : ''} · ${(solSize || 0.2).toFixed(2)} SOL (${fmtUsd(sizeUsd)}) @ ${fmtUsd(entryMc)} MC`;
   floorEmit('trade.enter', {
     mint: t.address, symbol: t.symbol, name: t.name,
     score: finalScore, sizeUsd, solSize: (solSize || 0.2), entryMc, researchMod,
+    whale: !!isWhale, early: !!isEarly,
   });
   return done(sig, true);
 }
