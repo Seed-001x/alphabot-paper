@@ -3,7 +3,7 @@
 // trading-app feed: symbol, V (24h vol), MC, age, TX. Tap a row -> opens the
 // token's DexScreener page (real link from enrichment) and logs an inspect
 // event. Never faked: rows come only from the live `feeds.ready` bus event.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { subscribeFloor, floorEmit } from '../lib/floorBus.js';
 import { pumpPortalState } from '../lib/pumpportal.js';
 import { fmtUsd, fmtAgo } from '../lib/paper.js';
@@ -37,11 +37,25 @@ function FeedRow({ r, extra }) {
   );
 }
 
-export default function FeedsPanel() {
-  const [rows, setRows] = useState({ new: [], trending: [], movers: [] });
+// v3.8 backend mode: pass initialRows (+updatedTs) from the server's
+// /api/state so the panel shows data immediately; live bus events keep
+// refreshing it either way.
+export default function FeedsPanel({ initialRows, initialTs }) {
+  const [rows, setRows] = useState(() => initialRows || { new: [], trending: [], movers: [] });
   const [tab, setTab] = useState('trending');
-  const [updatedAt, setUpdatedAt] = useState(null);
+  const [updatedAt, setUpdatedAt] = useState(() => initialTs || null);
   const [pp, setPp] = useState('idle');
+  const seededRef = useRef(false);
+
+  // Seed once from the server snapshot (first paint); bus events refresh after.
+  useEffect(() => {
+    if (!seededRef.current && initialRows &&
+        ((initialRows.new || []).length + (initialRows.trending || []).length + (initialRows.movers || []).length > 0)) {
+      seededRef.current = true;
+      setRows(initialRows);
+      setUpdatedAt(initialTs || Date.now());
+    }
+  }, [initialRows, initialTs]);
 
   useEffect(() => subscribeFloor(ev => {
     if (ev.type === 'feeds.ready' && ev.new) {

@@ -30,9 +30,15 @@ function todayPnl(equityArr, nowMs) {
 }
 
 // ------------------------------------------------------------ header (tight)
-function CommandHeader({ stats, equityArr, openCount, scanned, signalCount, now, paused, onTogglePaused, onOpenSettings, flowOn }) {
+// ------------------------------------------------------------ header (tight)
+// v3.8: mode pill — ● SERVER (green) when rendering the backend's data,
+// ● LOCAL (amber) when the browser runs the pipeline itself. Tap for data age.
+function CommandHeader({ stats, equityArr, openCount, scanned, signalCount, now, paused, onTogglePaused, onOpenSettings, flowOn, backendMode, readOnly }) {
   const today = todayPnl(equityArr, now);
   const tCls = !today ? '' : today.usd >= 0 ? 'grn' : 'red';
+  const [modeOpen, setModeOpen] = useState(false);
+  const server = backendMode && backendMode.mode === 'server';
+  const ageMs = server && backendMode.lastCycleTs ? Math.max(0, now - backendMode.lastCycleTs) : null;
   return (
     <header className="cc-hdr">
       <div className="cc-top">
@@ -45,12 +51,24 @@ function CommandHeader({ stats, equityArr, openCount, scanned, signalCount, now,
           <span className="cc-sub2">{openCount} OPEN · {scanned} SCANNED · {signalCount} SIGNALS</span>
         </div>
         <div className="cc-right">
+          <span
+            className={'cc-mode ' + (server ? 'server' : 'local')}
+            onClick={() => setModeOpen(!modeOpen)}
+            title={server ? 'rendering the server desk — tap for data age' : 'pipeline running in this tab — tap for details'}
+          >
+            <i className="cc-pulse" />{server ? 'SERVER' : 'LOCAL'}
+          </span>
+          {modeOpen && (
+            <span className="cc-mode-age">
+              {server ? (ageMs == null ? 'server · age ?' : `server data ${Math.round(ageMs / 1000)}s old`) : 'pipeline in this tab'}
+            </span>
+          )}
           <span className={'cc-live' + (paused ? ' paused' : '')}>
             <i className="cc-pulse" />{paused ? 'PAUSED' : 'ONLINE'}
           </span>
           {flowOn && <span className="cc-flowtag" title="smart-flow watcher active">◈</span>}
           <span className="cc-clock">{fmtClock(now)}</span>
-          <button className="cc-btn" onClick={onTogglePaused} title={paused ? 'Resume' : 'Pause'}>{paused ? '▶' : '❚❚'}</button>
+          <button className="cc-btn" onClick={onTogglePaused} disabled={readOnly} title={readOnly ? 'read-only in server mode' : (paused ? 'Resume' : 'Pause')}>{paused ? '▶' : '❚❚'}</button>
           <button className="cc-btn" onClick={onOpenSettings} title="Settings">⚙</button>
         </div>
       </div>
@@ -261,7 +279,10 @@ function LiveActivity({ signals, onStats }) {
 }
 
 // ------------------------------------------------------------ command center
-export default function CommandCenter({ portfolio, priceMap, stats, now, paused, onTogglePaused, onOpenSettings, flowOn }) {
+// v3.8 backend mode: portfolio/stats come from the server snapshot;
+// brainRemote/exitRulesRemote/feedRows seed the panels; the floor still
+// animates from translated floorBus events (see App).
+export default function CommandCenter({ portfolio, priceMap, stats, now, paused, onTogglePaused, onOpenSettings, flowOn, backendMode, readOnly, serverBrain, serverExitRules, feedRows, feedTs }) {
   const [counts, setCounts] = useState({ scanned: 0, signals: 0 });
   const d = useDeskStats();
   const signals = portfolio.signals || [];
@@ -279,6 +300,8 @@ export default function CommandCenter({ portfolio, priceMap, stats, now, paused,
         onTogglePaused={onTogglePaused}
         onOpenSettings={onOpenSettings}
         flowOn={flowOn}
+        backendMode={backendMode}
+        readOnly={readOnly}
       />
       <main className="wrap cc-main">
         <SeatStrip d={d} openCount={stats.openCount} />
@@ -290,10 +313,11 @@ export default function CommandCenter({ portfolio, priceMap, stats, now, paused,
           priceMap={priceMap}
           stats={stats}
           now={now}
+          brainRemote={serverBrain}
         />
         <BottomPanels d={d} equityArr={portfolio.equity} bankroll0={portfolio.bankroll0} />
-        <FeedsPanel />
-        <BrainPanel />
+        <FeedsPanel initialRows={feedRows} initialTs={feedTs} />
+        <BrainPanel remote={serverBrain && serverExitRules ? { brain: serverBrain, exitRules: serverExitRules } : null} />
         <LiveActivity signals={signals} onStats={setCounts} />
       </main>
     </>

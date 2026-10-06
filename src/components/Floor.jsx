@@ -34,6 +34,12 @@ function useDeskStats() {
             next.buckets = b.slice(-24);
             break;
           }
+          // v3.8 backend mode: the server emits scan.done (aggregate) instead
+          // of per-token scan.token events. Same honest count, no fakes.
+          case 'scan.done': {
+            next.scanned = prev.scanned + (ev.discovered || 0);
+            break;
+          }
           case 'vet.kill': {
             next.kills = prev.kills + 1;
             const p = ev.killPass || 'vet';
@@ -302,7 +308,7 @@ function CrownedRobot() {
   );
 }
 
-export function TheFloor({ d, equityArr, bankroll0, positions, priceMap, stats, now }) {
+export function TheFloor({ d, equityArr, bankroll0, positions, priceMap, stats, now, brainRemote }) {
   const [active, setActive] = useState({ id: null, ts: 0, exit: false });
   const [chips, setChips] = useState([]);
   const [delivs, setDelivs] = useState([]); // {mint, symbol, phase: fetch|carry|review|exec|waveoff}
@@ -590,7 +596,7 @@ export function TheFloor({ d, equityArr, bankroll0, positions, priceMap, stats, 
                     <DeskMonitor id="trade" d={d} equityArr={equityArr} positions={positions} priceMap={priceMap} />
                   </div>
                 </div>
-                <BrainReadout />
+                <BrainReadout brain={brainRemote} />
                 <div className="fdesk-stand" />
                 <div className="fdesk-top" />
                 <div className="fdesk-front" />

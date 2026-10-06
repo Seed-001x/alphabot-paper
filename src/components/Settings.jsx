@@ -15,12 +15,13 @@ const ORDER = [
   'scanIntervalSec', 'priceIntervalSec',
 ];
 
-export default function Settings({ open, onClose, config, onConfig, portfolio, priceMap, onReset, paused, onTogglePaused, keyState, onKeySaved }) {
+export default function Settings({ open, onClose, config, onConfig, portfolio, priceMap, onReset, paused, onTogglePaused, keyState, onKeySaved, readOnly, backendUrl, onBackendUrl, backendMode }) {
   const [keyInput, setKeyInput] = useState('');
   const [keyErr, setKeyErr] = useState('');
   const [aiInput, setAiInput] = useState('');
   const [aiErr, setAiErr] = useState('');
   const [aiSaved, setAiSaved] = useState(!!getAiKey());
+  const [bUrlInput, setBUrlInput] = useState(backendUrl || '');
   if (!open) return null;
   const stats = statsFor(portfolio, priceMap);
   const js = getJudgeStats();
@@ -68,11 +69,12 @@ export default function Settings({ open, onClose, config, onConfig, portfolio, p
           <div className="stat"><div className="k">Avg mult</div><div className="v">{stats.avgMultiple == null ? '—' : stats.avgMultiple.toFixed(2) + 'x'}</div></div>
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <button className={'btn' + (paused ? ' on' : '')} onClick={onTogglePaused}>{paused ? '▶ Resume desk' : '❚❚ Pause desk'}</button>
-          <button className="btn" onClick={() => { if (window.confirm('Reset the paper portfolio? This wipes positions, trades and the equity curve.')) onReset(config.bankroll0); }}>↺ Reset</button>
-          <button className="btn" onClick={() => { if (window.confirm('Reset learning? This wipes the kill ledger, trade journal and adapted weights. The desk starts collecting data from scratch.')) { resetLearning(); window.location.reload(); } }}>🧠 Reset learning</button>
+          <button className={'btn' + (paused ? ' on' : '')} onClick={onTogglePaused} disabled={readOnly} title={readOnly ? 'read-only in server mode' : undefined}>{paused ? '▶ Resume desk' : '❚❚ Pause desk'}</button>
+          <button className="btn" disabled={readOnly} title={readOnly ? 'read-only in server mode' : undefined} onClick={() => { if (window.confirm('Reset the paper portfolio? This wipes positions, trades and the equity curve.')) onReset(config.bankroll0); }}>↺ Reset</button>
+          <button className="btn" disabled={readOnly} title={readOnly ? 'read-only in server mode' : undefined} onClick={() => { if (window.confirm('Reset learning? This wipes the kill ledger, trade journal and adapted weights. The desk starts collecting data from scratch.')) { resetLearning(); window.location.reload(); } }}>🧠 Reset learning</button>
           <button className="btn grn" onClick={onClose}>Done</button>
         </div>
+        {readOnly && <p className="note" style={{ color: 'var(--grn)' }}>◈ server mode — this desk is read-only. Pause / reset act on the local pipeline, which is currently off.</p>}
 
         <h3>◈ Smart flow — Helius key</h3>
         <p className="note">
@@ -131,6 +133,31 @@ export default function Settings({ open, onClose, config, onConfig, portfolio, p
             <p className="note">One key is shared by all research workers. Get one at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">platform.openai.com</a>.</p>
           </>
         )}
+
+        <h3>◈ Backend mode — server desk</h3>
+        <p className="note">
+          Optional. When the server desk is alive and its data is fresh (a pipeline
+          cycle within the last 3 minutes), this page renders the server's portfolio,
+          positions, activity and brain — and the local pipeline stays off. If the
+          server is unreachable or stale, the browser pipeline runs as usual.
+          Read-only: the server can never be traded or reset from here.
+        </p>
+        <div className="key-row">
+          <input
+            type="text" spellCheck={false}
+            placeholder="https://your-backend.onrender.com"
+            value={bUrlInput}
+            onChange={e => setBUrlInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && onBackendUrl(bUrlInput)}
+            style={{ flex: 1 }}
+          />
+          <button className="btn" onClick={() => onBackendUrl(bUrlInput)}>Save</button>
+        </div>
+        <p className="note" style={{ marginTop: 6 }}>
+          {backendMode && backendMode.mode === 'server'
+            ? <span style={{ color: 'var(--grn)' }}>● server mode active — rendering the 24/7 pipeline</span>
+            : <span>● local mode — clear the field and save to disable backend mode entirely</span>}
+        </p>
 
         <h3>◈ Risk &amp; vet parameters</h3>
         {ORDER.map(k => {

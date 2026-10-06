@@ -16,6 +16,10 @@ import { Q } from './lib/queues.js';
 import { logKill, logTradeEntry, logTradeExit, confirmKills } from './lib/learning.js';
 import { startFlowWatch } from './lib/flowWatch.js';
 import { floorEmit } from './lib/floorBus.js';
+import {
+  getBackendUrl, setBackendUrl, fetchHealth, fetchState, fetchEvents,
+  isFresh,
+} from './lib/backend.js';
 import CommandCenter from './components/CommandCenter.jsx';
 import { ELITE } from './lib/elite.js';
 import { fetchWalletTxns, parseSwaps } from './lib/helius.js';
@@ -59,6 +63,13 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [keyState, setKeyState] = useState(getKey());
   const [now, setNow] = useState(Date.now());
+  // v3.8 BACKEND MODE: when the server desk is alive and fresh (< 3 min),
+  // the UI renders the server's snapshot and the local pipeline stays OFF.
+  // Anything else → local mode, exactly as before. Fail-open, never blank.
+  const [backendUrl, setBackendUrlState] = useState(getBackendUrl);
+  const [backend, setBackend] = useState({ mode: 'local', health: null, data: null, checkedAt: 0, url: getBackendUrl() });
+  const backendRef = useRef(backend);
+  const seenEvRef = useRef(new Set()); // dedupe for translated server events
 
   const portfolioRef = useRef(portfolio);
   const configRef = useRef(config);
@@ -73,6 +84,7 @@ export default function App() {
   portfolioRef.current = portfolio;
   configRef.current = config;
   pausedRef.current = paused;
+  backendRef.current = backend;
 
   function setSeat(id, s) {
     setSeats(prev => ({ ...prev, [id]: { ...(prev[id] || {}), ...s } }));
@@ -106,9 +118,91 @@ export default function App() {
     loggedRef.current.set(sig.mint, { k, ts: Date.now() });
   }
 
+  // ---------------- v3.8 BACKEND MODE ----------------
+  // Health gate: server mode only when /health is ok AND the server ran a
+  // cycle within the last 3 min (free tier sleeps — staleness ⇒ local mode).
+  const checkBackend = useCallback(async () => {
+    const url = getBackendUrl();
+    // Explicitly disabled → stay local, no network calls at all.
+    if (!url) {
+      setBackend(prev => (prev.mode === 'local'
+        ? { ...prev, checkedAt: Date.now(), url: null }
+        : { mode: 'local', health: null, data: null, checkedAt: Date.now(), url: null }));
+      return;
+    }
+    try {
+      const h = await fetchHealth(url);
+      if (isFresh(h)) {
+        const s = await fetchState(url);
+        setBackend({ mode: 'server', health: h, data: s, checkedAt: Date.now(), url });
+        return;
+      }
+    } catch { /* fail-open → local */ }
+    setBackend(prev => (prev.mode === 'local'
+      ? { ...prev, checkedAt: Date.now(), url }
+      : { mode: 'local', health: null, data: null, checkedAt: Date.now(), url }));
+  }, []);
+
+  // Server event kinds → the floor's event shapes (backend uses `kind`).
+  const KIND_MAP = { 'flow.mint': 'flow.inject' };
+  const pollBackendEvents = useCallback(async () => {
+    const b = backendRef.current;
+    if (b.mode !== 'server' || !b.url) return;
+    try {
+      const evs = await fetchEvents(b.url, 60);
+      const fresh = [];
+      for (const e of evs) {
+        if (!e || !e.kind || !e.ts) continue;
+        const key = e.kind + '|' + e.ts + '|' + (e.mint || '');
+        if (seenEvRef.current.has(key)) continue;
+        fresh.push(e);
+      }
+      fresh.reverse(); // oldest-first so the floor animates in order
+      for (const e of fresh) {
+        const key = e.kind + '|' + e.ts + '|' + (e.mint || '');
+        seenEvRef.current.add(key);
+        const { kind, ...rest } = e; // rest.ts preserved by floorEmit's spread
+        floorEmit(KIND_MAP[kind] || kind, rest);
+      }
+      if (seenEvRef.current.size > 3000) {
+        const it = seenEvRef.current.values();
+        for (let i = 0; i < 1000; i++) {
+          const v = it.next().value;
+          if (v === undefined) break;
+          seenEvRef.current.delete(v);
+        }
+      }
+    } catch { /* a dead poll is fine — next one soon */ }
+  }, []);
+
+  // Display-only price refresh for open positions in server mode.
+  // NOT the pipeline: no scanning, no entries, no exits, no learning writes.
+  const serverPriceTick = useCallback(async () => {
+    const b = backendRef.current;
+    if (b.mode !== 'server' || !b.data) return;
+    const mints = [...new Set((b.data.portfolio.positions || []).map(x => x.mint))].slice(0, 40);
+    if (!mints.length) return;
+    try {
+      const raw = await fetchTokens(mints);
+      const pm = {};
+      for (const m of mints) {
+        const v = tokenView(raw[m]);
+        if (v) pm[m] = v;
+      }
+      setPriceMap(pm);
+    } catch { /* fail-open */ }
+  }, []);
+
+  function onBackendUrlSaved(u) {
+    setBackendUrl(u);
+    setBackendUrlState(getBackendUrl());
+    setBackend({ mode: 'local', health: null, data: null, checkedAt: 0, url: getBackendUrl() });
+  }
+
   // ---------------- SCAN → VET → SCORE → TRADE ----------------
   const scanCycle = useCallback(async () => {
-    if (pausedRef.current || scanning.current) return;
+    // v3.8: the local pipeline NEVER runs in server mode (no double trading).
+    if (pausedRef.current || scanning.current || backendRef.current.mode === 'server') return;
     scanning.current = true;
     floorEmit('cycle.start', {});
     setSeat('scan', { working: true, val: '…', sub: 'pump.fun firehose + discovery' });
@@ -287,9 +381,10 @@ export default function App() {
   }, []);
 
   // ---------------- smart-flow watcher: silent background layer ----------------
-  // Dormant without a Helius key. Detected mints enter the DD pipeline —
-  // they are never scored, boosted, or entered on sight.
+  // Dormant without a Helius key. v3.8: also dormant in server mode — the
+  // server runs its own watcher with the server-side key (no double burn).
   useEffect(() => {
+    if (backend.mode === 'server') return undefined;
     const key = getKey();
     if (!key) return undefined;
     const h = startFlowWatch(key, (mint) => {
@@ -298,11 +393,12 @@ export default function App() {
       floorEmit('flow.inject', { mint });
     });
     return () => h.stop();
-  }, [keyState]);
+  }, [keyState, backend.mode]);
 
   // ---------------- RISK: price tick + exits ----------------
   const priceTick = useCallback(async () => {
-    if (pausedRef.current) return;
+    // v3.8: no local repricing/exits in server mode — the server does it.
+    if (pausedRef.current || backendRef.current.mode === 'server') return;
     const p = portfolioRef.current;
     const cfg = configRef.current;
     const mints = new Set((p.positions || []).map(x => x.mint));
@@ -332,18 +428,41 @@ export default function App() {
   }, []);
 
   // ---------------- loops ----------------
+  // v3.8: local loops run ONLY in local mode, and only after the first
+  // backend health check has resolved (so server mode never double-runs).
   useEffect(() => {
+    if (backend.mode !== 'local' || !backend.checkedAt) return undefined;
     probePumpPortal(); // PumpPortal WS probe (in-browser; fail-open)
     scanCycle();
     const t = setInterval(scanCycle, Math.max(20, config.scanIntervalSec) * 1000);
     return () => clearInterval(t);
-  }, [scanCycle, config.scanIntervalSec]);
+  }, [scanCycle, config.scanIntervalSec, backend.mode, backend.checkedAt]);
 
   useEffect(() => {
+    if (backend.mode !== 'local' || !backend.checkedAt) return undefined;
     priceTick();
     const t = setInterval(priceTick, Math.max(10, config.priceIntervalSec) * 1000);
     return () => clearInterval(t);
-  }, [priceTick, config.priceIntervalSec]);
+  }, [priceTick, config.priceIntervalSec, backend.mode, backend.checkedAt]);
+
+  // v3.8: backend health gate — on load and every 30s. One quiet poll;
+  // never tries to wake a sleeping free-tier service aggressively.
+  useEffect(() => {
+    checkBackend();
+    const t = setInterval(checkBackend, 30000);
+    return () => clearInterval(t);
+  }, [checkBackend, backendUrl]);
+
+  // v3.8: in server mode, stream the server's events into the floor (10s)
+  // and keep position prices fresh for display (30s). Read-only.
+  useEffect(() => {
+    if (backend.mode !== 'server') return undefined;
+    pollBackendEvents();
+    serverPriceTick();
+    const e = setInterval(pollBackendEvents, 10000);
+    const p = setInterval(serverPriceTick, 30000);
+    return () => { clearInterval(e); clearInterval(p); };
+  }, [backend.mode, pollBackendEvents, serverPriceTick]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -370,29 +489,53 @@ export default function App() {
     commitPortfolio();
   }
 
-  const stats = statsFor(portfolio, priceMap);
+  const localStats = statsFor(portfolio, priceMap);
+  // v3.8: in server mode the desk renders the server's snapshot; the local
+  // portfolio/ledgers sit untouched in localStorage.
+  const isServer = backend.mode === 'server' && !!(backend.data && backend.data.portfolio);
+  const dispPortfolio = isServer ? backend.data.portfolio : portfolio;
+  const dispStats = isServer
+    ? (backend.data.stats || statsFor(backend.data.portfolio, priceMap))
+    : localStats;
+  const effPaused = isServer ? false : paused; // server mode is read-only
+  const backendModeInfo = {
+    mode: backend.mode,
+    lastCycleTs: backend.health ? backend.health.lastCycleTs : null,
+    url: backend.url,
+  };
 
   return (
     <>
       <Banner />
       <CommandCenter
-        portfolio={portfolio}
+        portfolio={dispPortfolio}
         priceMap={priceMap}
-        stats={stats}
+        stats={dispStats}
         now={now}
-        paused={paused}
-        onTogglePaused={togglePaused}
+        paused={effPaused}
+        onTogglePaused={isServer ? () => {} : togglePaused}
         onOpenSettings={() => setSettingsOpen(true)}
-        flowOn={!!keyState}
+        flowOn={isServer ? !!((backend.data.keys || {}).helius) : !!keyState}
+        backendMode={backendModeInfo}
+        readOnly={isServer}
+        serverBrain={isServer ? backend.data.brain : null}
+        serverExitRules={isServer ? backend.data.exitRules : null}
+        feedRows={isServer ? backend.data.feeds : null}
+        feedTs={isServer ? backend.data.ts : null}
       />
       <main className="wrap">
-        {paused && (
+        {effPaused && (
           <div className="panel" style={{ borderColor: 'var(--amb)', textAlign: 'center', color: 'var(--amb)', letterSpacing: 2, fontSize: 11 }}>
             ❚❚ DESK PAUSED — scans and ticks halted
           </div>
         )}
-        <Positions positions={portfolio.positions} priceMap={priceMap} />
-        <Trades closed={portfolio.closed} />
+        {isServer && (
+          <div className="panel" style={{ borderColor: 'rgba(61,255,143,.25)', textAlign: 'center', color: 'var(--grn)', letterSpacing: 2, fontSize: 10 }}>
+            ◈ SERVER DESK — rendering the 24/7 pipeline · read-only · local mode takes over if it goes stale
+          </div>
+        )}
+        <Positions positions={dispPortfolio.positions} priceMap={priceMap} />
+        <Trades closed={dispPortfolio.closed} />
       </main>
 
       <footer className="foot">
@@ -404,13 +547,17 @@ export default function App() {
         onClose={() => setSettingsOpen(false)}
         config={config}
         onConfig={applyConfig}
-        portfolio={portfolio}
+        portfolio={dispPortfolio}
         priceMap={priceMap}
         onReset={doReset}
-        paused={paused}
-        onTogglePaused={togglePaused}
+        paused={effPaused}
+        onTogglePaused={isServer ? () => {} : togglePaused}
         keyState={keyState}
         onKeySaved={setKeyState}
+        readOnly={isServer}
+        backendUrl={backendUrl}
+        onBackendUrl={onBackendUrlSaved}
+        backendMode={backendModeInfo}
       />
     </>
   );

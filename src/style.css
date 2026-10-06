@@ -558,6 +558,13 @@ body::before { display: none; }
 .cc-right { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--dim); }
 .cc-live { display: flex; align-items: center; gap: 6px; color: var(--grn); letter-spacing: 1px; font-size: 10px; }
 .cc-live.paused { color: var(--amb); }
+/* v3.8 backend-mode pill: ● SERVER (green) / ● LOCAL (amber). Tap → data age. */
+.cc-mode { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; letter-spacing: 1px; padding: 3px 9px; border: 1px solid rgba(255,255,255,.12); border-radius: 20px; cursor: pointer; user-select: none; }
+.cc-mode.server { color: var(--grn); border-color: rgba(61,255,143,.35); }
+.cc-mode.local { color: var(--amb); border-color: rgba(255,209,102,.3); }
+.cc-mode-age { font-size: 10px; color: var(--faint); letter-spacing: .5px; }
+/* v3.8: disabled controls in server (read-only) mode */
+.btn:disabled, .cc-btn:disabled { opacity: .35; cursor: not-allowed; }
 .cc-pulse { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: ccpulse 2.4s ease-in-out infinite; }
 @keyframes ccpulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
 .cc-clock { color: var(--faint); font-variant-numeric: tabular-nums; }

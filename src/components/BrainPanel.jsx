@@ -11,11 +11,12 @@ import { fmtUsd } from '../lib/paper.js';
 
 const COMP_LABELS = { liquidity: 'LIQ', holders: 'HOLD', buyPressure: 'BUY', curve: 'CURVE', age: 'AGE', momentum: 'MOM' };
 
-function useBrain() {
+function useBrain(disabled) {
   const [b, setB] = useState(() => getBrainStats());
   const [w, setW] = useState(() => getAdaptiveWeights(SCORE_WEIGHTS));
   const [x, setX] = useState(() => { try { return getExitRules(loadConfig()); } catch { return null; } });
   useEffect(() => {
+    if (disabled) return undefined; // v3.8 backend mode: remote data, no local poll
     const t = setInterval(() => {
       try {
         setB(getBrainStats());
@@ -24,20 +25,29 @@ function useBrain() {
       } catch { /* fail-open */ }
     }, 10000);
     return () => clearInterval(t);
-  }, []);
+  }, [disabled]);
   return { b, w, x };
 }
 
 export function useBrainStats() {
-  const { b } = useBrain();
+  const { b } = useBrain(false);
   return b;
 }
 
-export default function BrainPanel() {
-  const { b, w, x } = useBrain();
+// v3.8 backend mode: pass remote={{ brain, exitRules }} to render the
+// SERVER's learning instead of this browser's localStorage ledgers.
+// (Adaptive weight values aren't exposed by the backend API, so the weights
+// column hides in backend mode — brain stats + exit rules are complete.)
+export default function BrainPanel({ remote }) {
+  const { b: lb, w: lw, x: lx } = useBrain(!!remote);
+  const b = (remote && remote.brain) || lb;
+  const x = (remote && remote.exitRules) || lx;
+  const w = remote ? null : lw;
   const collecting = b.collecting;
   const wr = b.winRate != null ? `${(b.winRate * 100).toFixed(0)}%` : '—';
   const avg = b.avgPnl != null ? `${b.avgPnl >= 0 ? '+' : ''}${b.avgPnl.toFixed(1)}%` : '—';
+  const minK = (b.minKills != null ? b.minKills : MIN_KILLS);
+  const minT = (b.minTrades != null ? b.minTrades : MIN_TRADES);
   const exitRows = [];
   if (x) {
     exitRows.push({
@@ -63,9 +73,10 @@ export default function BrainPanel() {
       <div className="br-head">
         <span className="br-title">BRAIN</span>
         <span className={'br-status' + (collecting ? '' : ' on')}>
-          {collecting ? `collecting data · ${b.confirmedKills}/${MIN_KILLS} kills · ${b.closed}/${MIN_TRADES} trades` : 'learning live'}
+          {collecting ? `collecting data · ${b.confirmedKills}/${minK} kills · ${b.closed}/${minT} trades` : 'learning live'}
         </span>
-        {w.adapted && <span className="adapt-tag">weights adapted</span>}
+        {w && w.adapted && <span className="adapt-tag">weights adapted</span>}
+        {remote && <span className="adapt-tag" title="learning ledgers live on the server, not this browser">server</span>}
       </div>
       <div className="br-stats">
         <span>closed <b>{b.closed}</b></span>
@@ -100,7 +111,7 @@ export default function BrainPanel() {
           </div>
           <div className="br-col">
             <div className="br-sub">score weights</div>
-            {Object.keys(SCORE_WEIGHTS).map(k => {
+            {w ? Object.keys(SCORE_WEIGHTS).map(k => {
               const cur = w.weights[k];
               const dflt = SCORE_WEIGHTS[k];
               const chg = Math.abs(cur - dflt) > 0.01;
@@ -111,14 +122,14 @@ export default function BrainPanel() {
                   <span className="dim">{chg ? <span className="adapt-tag sm">adapted</span> : `base ${dflt}`}</span>
                 </div>
               );
-            })}
+            }) : <div className="br-empty">weights live server-side</div>}
           </div>
         </div>
       )}
       {collecting && (
-        <div className="br-empty">the floor is watching and recording. adaptations begin at {MIN_KILLS} confirmed kills + {MIN_TRADES} closed trades — nothing adapts before that.</div>
+        <div className="br-empty">the floor is watching and recording. adaptations begin at {minK} confirmed kills + {minT} closed trades — nothing adapts before that.</div>
       )}
-      {w.log.length > 0 && (
+      {w && w.log.length > 0 && (
         <div className="br-log">
           {w.log.slice(0, 3).map((e, i) => (
             <div className="br-row dim" key={i}>
@@ -143,14 +154,16 @@ export default function BrainPanel() {
           </div>
         ))}
       </div>
-      <div className="br-foot">local-only ledgers · never overrides hard kills · fail-open</div>
+      <div className="br-foot">{remote ? 'server-side ledgers · durable' : 'local-only ledgers'} · never overrides hard kills · fail-open</div>
     </section>
   );
 }
 
 // Compact readout for the king's throne monitor: closed / win% / avg P&L.
-export function BrainReadout() {
-  const b = useBrainStats();
+// v3.8: accepts the server's brain in backend mode.
+export function BrainReadout({ brain }) {
+  const local = useBrainStats();
+  const b = brain || local;
   if (!b.closed) return <div className="br-ro">BRAIN · collecting data</div>;
   const wr = b.winRate != null ? `${(b.winRate * 100).toFixed(0)}%` : '—';
   const avg = b.avgPnl != null ? `${b.avgPnl >= 0 ? '+' : ''}${b.avgPnl.toFixed(1)}%` : '—';
