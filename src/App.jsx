@@ -97,7 +97,7 @@ export default function App() {
   const scanCycle = useCallback(async () => {
     if (pausedRef.current || scanning.current) return;
     scanning.current = true;
-    setSeat('scan', { working: true, val: '…', sub: 'discovery feeds' });
+    setSeat('scan', { working: true, val: '…', sub: 'pump.fun firehose + discovery' });
     const p = portfolioRef.current;
     const cfg = configRef.current;
     try {
@@ -115,10 +115,10 @@ export default function App() {
         survivors.push(t);
       }
 
-      // Chain-kill only the top of the queue (ranked by turnover) — ascending cost.
+      // Rug-kill only the top of the queue (ranked by turnover) — ascending cost.
       survivors.sort((a, b) => b.turnover - a.turnover);
       const vetBatch = survivors.slice(0, 12);
-      setSeat('vet', { working: true, val: String(kills), sub: `killed · chain-killing top ${vetBatch.length}` });
+      setSeat('vet', { working: true, val: String(kills), sub: `killed · rug-checking top ${vetBatch.length}` });
       const vetted = await mapPool(vetBatch, 3, t => vetToken(t, cfg));
 
       // Elite confirmation: only for scorers where the boost could clear the bar.
@@ -276,7 +276,7 @@ export default function App() {
       </main>
 
       <footer className="foot">
-        ALPHABOT v2 · token-first desk · DexScreener + public Solana RPC · virtual P&amp;L is not real profit — not financial advice
+        ALPHABOT v2 · pump.fun desk · RugCheck + DexScreener · virtual P&amp;L is not real profit — not financial advice
       </footer>
 
       <Settings

@@ -3,7 +3,7 @@ import { fmtUsd, fmtPct, fmtAgo, fmtDur, fmtClock } from '../lib/paper.js';
 import { SCORE_WEIGHTS } from '../lib/pipeline.js';
 
 const BRK_LABELS = {
-  liquidity: 'LIQ', holders: 'HOLD', buyPressure: 'BUY', volume: 'VOL', age: 'AGE',
+  liquidity: 'LIQ', holders: 'HOLD', buyPressure: 'BUY', curve: 'CURVE', age: 'AGE',
 };
 
 function Breakdown({ breakdown }) {
