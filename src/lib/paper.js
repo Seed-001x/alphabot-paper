@@ -118,6 +118,7 @@ export function processResult(p, r, cfg, opts = {}) {
     ...base, verdict: 'SCORED',
     score: finalScore, rawScore: r.score,
     researchMod, researchLine: r.researchLine || null,
+    judgeMod: r.judgeMod || 0, judgeLine: r.judgeLine || null,
     breakdown: r.breakdown, dossier: r.dossier || null,
     eliteHit: !!r.eliteHit,
     flowTag: !!r.flowTag,

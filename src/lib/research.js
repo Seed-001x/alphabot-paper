@@ -274,18 +274,22 @@ async function researchInner(t, dossier) {
       bumpStats({ checks: stats.checks + 1 });
       if (creator) {
         const e = noteCreatorLaunch(creator, t.address);
+        const ctag = `creator ${creator.slice(0, 3)}…`;
         if (e.launches > SERIAL_LAUNCHES) {
           modifier -= 4;
           bumpStats({ creatorsFlagged: stats.creatorsFlagged + 1 });
           bits.push(`creator: serial launcher (${e.launches} launches)`);
           rlog(`  └ creator ${short(creator)} → SERIAL (${e.launches} launches) −4`, 'red');
+          floorEmit('ledger.check', { mint: t.address, symbol: t.symbol, tag: ctag, launches: e.launches, verdict: 'serial' });
         } else if (e.launches > 1) {
           modifier += 2;
           bits.push(`creator: ${e.launches} launches, clean`);
           rlog(`  └ creator ${short(creator)} → ${e.launches} launches, clean +2`, 'grn');
+          floorEmit('ledger.check', { mint: t.address, symbol: t.symbol, tag: ctag, launches: e.launches, verdict: 'clean' });
         } else {
           bits.push('creator: first seen');
           rlog(`  └ creator ${short(creator)} → first seen`, 'dim');
+          floorEmit('ledger.check', { mint: t.address, symbol: t.symbol, tag: ctag, launches: 1, verdict: 'first' });
         }
       } else {
         bits.push('creator: ?');

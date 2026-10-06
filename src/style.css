@@ -505,3 +505,33 @@ table.ledger tr:hover td { background: rgba(255,43,214,.04); }
 }
 .mb-statusbar .grn { color: var(--grn); } .mb-statusbar .red { color: var(--red); }
 .mb-blink { color: var(--grn); animation: rtblink 1.1s steps(1) infinite; }
+
+/* ---- crawler wall (v2.7) ---- */
+.cw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 10px; }
+.cw-win { border: 1px solid #2a1535; border-radius: 10px; background: #08040c;
+  box-shadow: 0 0 18px rgba(255,46,133,.07), inset 0 0 24px rgba(0,0,0,.6);
+  display: flex; flex-direction: column; min-height: 150px; overflow: hidden; }
+.cw-win.wide { grid-column: 1 / -1; }
+.cw-head { display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+  border-bottom: 1px solid #221026; background: #0d0714;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; }
+.cw-dot { width: 8px; height: 8px; border-radius: 50%; background: #3a2a44; transition: all .4s; }
+.cw-dot.on { background: var(--grn); box-shadow: 0 0 10px var(--grn); animation: afBlink 1.2s infinite; }
+.cw-name { color: var(--mag); font-weight: 800; }
+.cw-agent { margin-left: auto; color: var(--faint); font-size: 9px; letter-spacing: 2px; }
+.cw-body { padding: 9px 10px; font-family: var(--mono); font-size: 11px; color: var(--txt);
+  flex: 1; overflow-y: auto; max-height: 260px; }
+.cw-sub { color: var(--dim); font-size: 10px; margin-bottom: 6px; letter-spacing: 1px; }
+.cw-row { display: flex; gap: 10px; align-items: baseline; padding: 4px 0;
+  border-bottom: 1px dashed #1c1024; animation: cwIn .4s ease; }
+.cw-row:last-child { border-bottom: none; }
+.cw-row.bad b, .cw-row.bad span:first-child { color: var(--red); }
+.cw-flag { color: var(--red); animation: afBlink .8s infinite; }
+.cw-idle { color: var(--faint); font-size: 10px; letter-spacing: 1px; padding: 12px 0; text-align: center; }
+.cw-sym { color: var(--cyn); font-weight: 800; }
+.cw-body .gold { color: #ffd166; }
+.cw-body .grn { color: var(--grn); }
+.cw-body .red { color: var(--red); }
+.cw-body .dim { color: var(--faint); }
+@keyframes cwIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (max-width: 760px) { .cw-grid { grid-template-columns: 1fr 1fr; } .cw-win.wide { grid-column: 1 / -1; } }

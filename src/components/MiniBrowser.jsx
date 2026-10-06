@@ -5,6 +5,7 @@
 // Purely observational: subscribes to the research event bus, changes nothing.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { subscribeResearch } from '../lib/research.js';
+import { subscribeFloor } from '../lib/floorBus.js';
 
 const SWEEP_MS = 60; // theatrical pacing per keyword
 
@@ -41,6 +42,7 @@ export default function MiniBrowser() {
   const [revealed, setRevealed] = useState(0);
   const [cursor, setCursor] = useState(null);
   const [callout, setCallout] = useState(null);
+  const [judgments, setJudgments] = useState({});
   const contentRef = useRef(null);
   const spanRefs = useRef({});
 
@@ -61,6 +63,15 @@ export default function MiniBrowser() {
         setReads((prev) => [...prev.filter(r => r.mint !== evt.mint), rec].slice(-6));
         setActiveMint(evt.mint);
         setCursor(null); setCallout(null);
+      }
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    const unsub = subscribeFloor((ev) => {
+      if (ev && ev.type === 'judge.done' && ev.mint) {
+        setJudgments(prev => ({ ...prev, [ev.mint]: ev }));
       }
     });
     return unsub;
@@ -129,6 +140,7 @@ export default function MiniBrowser() {
   };
 
   const sweepDone = active && active.status === 'done' && revealed >= (active.hits || []).length;
+  const judge = active && judgments[active.mint] ? judgments[active.mint] : null;
 
   return (
     <div className="mb-wrap">
@@ -187,6 +199,12 @@ export default function MiniBrowser() {
         )}
         {active && sweepDone && (
           <span>✓ {active.domain} · {active.hits.length} keywords · <b className={active.delta > 0 ? 'grn' : active.delta < 0 ? 'red' : ''}>◈ verdict: {active.verdict}</b></span>
+        )}
+        {judge && (
+          <span style={{ marginLeft: 10 }}>⚖ <b>JUDGE {judge.legitimacy}/10</b>
+            {judge.one_liner ? <span className="dim"> · “{judge.one_liner}”</span> : null}
+            {judge.risk_flags && judge.risk_flags.length ? <span className="red"> · ⚠ {judge.risk_flags.join(', ')}</span> : null}
+          </span>
         )}
         {active && active.status === 'loading' && <span className="dim">connecting…</span>}
         {active && active.status === 'failed' && <span className="dim">skipped · fail-open</span>}

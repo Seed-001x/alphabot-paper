@@ -190,6 +190,12 @@ export async function vetToken(t, cfg) {
     return { verdict: 'KILLED', killReason: tk, killPass: 'trade' };
   }
   const { reason, dossier } = await rugKill(t, cfg);
+  // Crawler-wall DOSSIER window feed (additive — return values unchanged).
+  if (dossier) floorEmit('dossier.ready', {
+    mint: t.address, symbol: t.symbol, name: t.name,
+    devPct: dossier.devPct, topPct: dossier.topPct, top10Pct: dossier.top10Pct,
+    holderCount: dossier.holderCount, rugged: dossier.rugged, risks: dossier.risks || [],
+  });
   if (reason) {
     floorEmit('vet.kill', { mint: t.address, symbol: t.symbol, name: t.name, killPass: 'rug', killReason: reason });
     return { verdict: 'KILLED', killReason: reason, killPass: 'rug', dossier };
@@ -198,6 +204,9 @@ export async function vetToken(t, cfg) {
   floorEmit('vet.scored', {
     mint: t.address, symbol: t.symbol, name: t.name, score, breakdown,
     holderCount: dossier && dossier.holderCount != null ? dossier.holderCount : null,
+    buys24h: t.buys24h != null ? t.buys24h : null,
+    sells24h: t.sells24h != null ? t.sells24h : null,
+    vol24h: t.vol24h != null ? t.vol24h : null,
   });
   return { verdict: 'SCORED', score, breakdown, dossier };
 }

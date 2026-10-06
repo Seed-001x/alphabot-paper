@@ -9,11 +9,12 @@ import { fetchTokens, tokenView } from './lib/dexscreener.js';
 import { isOnCurve, curveProgress } from './lib/pumpfun.js';
 import { scanTokens, freeKill, tradeKill, vetToken } from './lib/pipeline.js';
 import { researchToken } from './lib/research.js';
+import { judgeToken } from './lib/aiJudge.js';
 import { startFlowWatch } from './lib/flowWatch.js';
 import { floorEmit } from './lib/floorBus.js';
 import ResearchTerminal from './components/Research.jsx';
 import AgentFloor from './components/AgentFloor.jsx';
-import Roamers from './components/Roamers.jsx';
+import CrawlerWall from './components/CrawlerWall.jsx';
 import { ELITE } from './lib/elite.js';
 import { fetchWalletTxns, parseSwaps } from './lib/helius.js';
 import {
@@ -57,17 +58,6 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [keyState, setKeyState] = useState(getKey());
   const [now, setNow] = useState(Date.now());
-  const [roamersOn, setRoamersOn] = useState(() => {
-    try { return localStorage.getItem('alphabot_roamers_v2') !== 'off'; } catch { return true; }
-  });
-
-  function toggleRoamers() {
-    setRoamersOn((prev) => {
-      const next = !prev;
-      try { localStorage.setItem('alphabot_roamers_v2', next ? 'on' : 'off'); } catch { /* ignore */ }
-      return next;
-    });
-  }
 
   const portfolioRef = useRef(portfolio);
   const configRef = useRef(config);
@@ -218,18 +208,24 @@ export default function App() {
       let researched = scoredList;
       if (scoredList.length) {
         setSeat('research', { working: true, val: '…', sub: `researching ${scoredList.length}` });
-        researched = await mapPool(scoredList, 3, async ({ t, v }) => ({
-          t, v, research: await researchToken(t, v.dossier),
-        }));
+        researched = await mapPool(scoredList, 3, async ({ t, v }) => {
+          const research = await researchToken(t, v.dossier);
+          // AI JUDGE seat: judgment numbers only, after keyword research.
+          // No key → no-op. Never kills, never gates — just a modifier.
+          const judge = await judgeToken(t, v.dossier, research);
+          return { t, v, research, judge };
+        });
         setSeat('research', { live: true, working: false, val: String(researched.length), sub: 'dossiers read · just now' });
       } else {
         setSeat('research', { live: true, working: false, val: '0', sub: 'no survivors · idle' });
       }
 
       const scoredVals = [];
-      for (const { t, v, research } of researched) {
+      for (const { t, v, research, judge } of researched) {
         scored++;
-        scoredVals.push(Math.max(0, Math.min(100, v.score + research.modifier)));
+        // Combined research budget stays ±10 (keyword research + AI judge).
+        const combinedMod = Math.max(-10, Math.min(10, (research.modifier || 0) + (judge.modifier || 0)));
+        scoredVals.push(Math.max(0, Math.min(100, v.score + combinedMod)));
         let eliteHit = false;
         if (eliteSwaps) {
           for (const addr of Object.keys(eliteSwaps)) {
@@ -237,7 +233,11 @@ export default function App() {
           }
         }
         const { signal, entered } = processResult(
-          p, { t, ...v, eliteHit, flowTag: !!t.flowTag, researchMod: research.modifier, researchLine: research.line },
+          p, {
+            t, ...v, eliteHit, flowTag: !!t.flowTag,
+            researchMod: combinedMod, researchLine: research.line,
+            judgeMod: judge.modifier || 0, judgeLine: judge.line,
+          },
           cfg, { silent: true });
         if (entered) entries++;
         emitSignal(signal);
@@ -345,8 +345,6 @@ export default function App() {
         onOpenSettings={() => setSettingsOpen(true)}
         now={now}
         eliteOn={!!keyState}
-        roamersOn={roamersOn}
-        onToggleRoamers={toggleRoamers}
       />
       <main className="wrap">
         {paused && (
@@ -357,6 +355,7 @@ export default function App() {
         <Seats seats={seats} />
         <AgentFloor />
         <ResearchTerminal />
+        <CrawlerWall />
 
         <div className="panel">
           <h2 className="panel-title">◈ Equity · virtual</h2>
@@ -397,7 +396,6 @@ export default function App() {
         keyState={keyState}
         onKeySaved={setKeyState}
       />
-      {roamersOn && <Roamers />}
     </>
   );
 }
