@@ -102,6 +102,9 @@ export function curveProgress(mc) {
 }
 
 // True when this pair is still on the pump.fun bonding curve.
+// DexScreener labels the venue as dexId "pumpfun" (not "pump") — match both
+// so on-curve coins aren't misread as graduated (a misread made the liq floor
+// kill every on-curve coin).
 export function isOnCurve(pair) {
-  return pair && pair.dexId === 'pump';
+  return !!pair && (pair.dexId === 'pumpfun' || pair.dexId === 'pump');
 }
