@@ -5,9 +5,11 @@ export const DEFAULT_CONFIG = {
   bankrollSol: 5,    // v3.8: SOL-denominated book — 5 SOL virtual (whale-ape 2.5 SOL = 50% of book, user's chosen aggression)
   bankroll0: 1000,   // USD fallback ONLY if bankrollSol is unset — applies on reset
   // --- SCAN / VET (kill chain, ascending cost) — pump.fun tuned ---
-  minTokenScore: 65,      // entry: token score must clear this (after elite boost)
+  // v3.10: WIDER NET (user: "quick trades teach the bot") — lower the bar,
+  // let scoring decide. Hard kills only for true rug vectors.
+  minTokenScore: 55,      // v3.10: was 65 — trade more, learn faster
   minLiquidityUsd: 2000,  // DEX LP floor — GRADUATED coins only (on-curve skip; the curve IS their liquidity)
-  minVol24hUsd: 5000,    // was 10000 — "with volume" for a young coin is lower
+  minVol24hUsd: 2500,    // v3.10: was 5000 — let the volume filter breathe
   pumpMinMc: 20000,       // on-curve MC floor — the $20k floor IS the newness filter (user's directive)
   pumpMaxMc: 1000000,     // user's spec: scan under $1M — hard ceiling
   minMc: 50000,           // graduated MC floor
@@ -15,10 +17,10 @@ export const DEFAULT_CONFIG = {
   minAgeMin: 0,           // DISABLED (user's directive) — newborns vetted on merit, never killed for being young
   maxPumpAgeHrs: 48,      // on-curve max age (hours)
   maxAgeDays: 7,          // graduated max age (days)
-  minBuys24h: 5,          // was 10 — young coins have fewer buys
+  minBuys24h: 3,          // v3.10: was 5 — three buys is a market
   requireSells: true,
   maxDevPct: 25,          // dev/creator share cap (%)
-  minHolders: 10,         // was 25 — a 3-minute-old coin has ~10 holders
+  minHolders: 5,          // v3.10: was 10 — five holders is enough to vet on merit
   maxTopHolderPct: 35,    // top holder share cap (%)
   maxTop10Pct: 70,        // top-10 share cap (%)
   eliteBoost: 8,          // score points added on smart-flow confirmation
@@ -53,9 +55,9 @@ export const DEFAULT_CONFIG = {
 
 export const RISK_META = {
   bankrollSol: { label: 'Starting bankroll', unit: 'SOL', min: 0.1, max: 100, hint: 'Applies on reset only. Virtual SOL — USD book value set at live SOL price.' },
-  minTokenScore: { label: 'Min token score', unit: '0–100', min: 0, max: 100, hint: 'Entry bar for the 0–100 token score (after elite boost).' },
+  minTokenScore: { label: 'Min token score', unit: '0–100', min: 0, max: 100, hint: 'v3.10: 55 — trade more, learn faster (quick trades teach the bot).' },
   minLiquidityUsd: { label: 'Min liquidity', unit: 'USD', min: 0, max: 1000000, hint: 'Free-kill floor — GRADUATED coins only (on-curve skip; the curve is their liquidity).' },
-  minVol24hUsd: { label: 'Min 24h volume', unit: 'USD', min: 0, max: 5000000, hint: 'Free-kill floor. $5k = real volume for a young coin.' },
+  minVol24hUsd: { label: 'Min 24h volume', unit: 'USD', min: 0, max: 5000000, hint: 'v3.10: $2.5k — let the volume filter breathe.' },
   pumpMinMc: { label: 'Pump min MC (on-curve)', unit: 'USD', min: 0, max: 1000000, hint: 'Free-kill floor for bonding-curve coins.' },
   pumpMaxMc: { label: 'Pump max MC (on-curve)', unit: 'USD', min: 10000, max: 2000000, hint: 'Hard ceiling $1M — under-1m universe only.' },
   minMc: { label: 'Min market cap (graduated)', unit: 'USD', min: 0, max: 10000000, hint: 'Free-kill floor for graduated coins.' },
@@ -63,9 +65,9 @@ export const RISK_META = {
   minAgeMin: { label: 'Min coin age', unit: 'minutes', min: 0, max: 600, hint: '0 = disabled. Newborns are vetted on merit (MC/vol/holders), never killed for youth.' },
   maxPumpAgeHrs: { label: 'Max pump age (on-curve)', unit: 'hours', min: 1, max: 240, hint: 'Free-kill ceiling for bonding-curve coins.' },
   maxAgeDays: { label: 'Max age (graduated)', unit: 'days', min: 1, max: 90, hint: 'Free-kill ceiling for graduated coins.' },
-  minBuys24h: { label: 'Min 24h buys', unit: 'count', min: 1, max: 1000, hint: '5 — young coins have fewer buys.' },
+  minBuys24h: { label: 'Min 24h buys', unit: 'count', min: 1, max: 1000, hint: 'v3.10: 3 — three buys is a market.' },
   maxDevPct: { label: 'Max dev share', unit: '%', min: 5, max: 100, hint: 'Kill if the dev/creator holds more than this.' },
-  minHolders: { label: 'Min holders', unit: 'count', min: 1, max: 500, hint: '10 — a minutes-old coin has ~10 holders.' },
+  minHolders: { label: 'Min holders', unit: 'count', min: 1, max: 500, hint: 'v3.10: 5 — five holders is enough to vet on merit.' },
   maxTopHolderPct: { label: 'Max top-holder share', unit: '%', min: 5, max: 100, hint: 'Kill if the biggest holder owns more than this.' },
   maxTop10Pct: { label: 'Max top-10 share', unit: '%', min: 10, max: 100, hint: 'Kill if the top 10 own more than this.' },
   eliteBoost: { label: 'Smart-flow boost', unit: 'points', min: 0, max: 25, hint: 'Added to score on smart-flow confirmation.' },

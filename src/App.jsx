@@ -299,7 +299,8 @@ export default function App() {
 
       // RESEARCH stage: drains at its own pace — page reads are slow and must
       // never block scanning. Fail-open, never kills — only nudges ±10.
-      const resBatch = Q.research.drain(5);
+      // v3.10: 6/cycle (was 5) — wider net needs more research throughput.
+      const resBatch = Q.research.drain(6);
       if (resBatch.length) {
         setSeat('research', { working: true, val: '…', sub: `researching ${resBatch.length} · q${Q.research.size}` });
         warmCalloutCache(); // v3.4: fetch callout channel previews once per cycle

@@ -157,7 +157,8 @@ export function processResult(p, r, cfg, opts = {}) {
     return gate(`cooldown — ${fmtDur(cfg.cooldownMin * 60000 - (now - cd))} left`);
 
   // v3.7: SOL-denominated sizing scaled by conviction (score band).
-  // 65–74 → solSizeBase · 75–84 → solSizeMid · 85+ → solSizeTop. USD accounting
+  // v3.10: entry bar is 55 — 55–74 → solSizeBase · 75–84 → solSizeMid ·
+  // 85+ → solSizeTop. Min 1 SOL per entry, always. USD accounting
   // stays; SOL price comes from opts (fetched once per cycle, cached 2m).
   // v3.8 WHALE-APE RULE: anything over whaleMcUsd MC with high volume
   // (turnover = vol24h/mc ≥ whaleTurnoverMin) gets whaleSolSize SOL — a whale

@@ -147,20 +147,26 @@ export function freeKill(t, cfg) {
 
 // ---------------------------------------------------------- VET: trade kill
 // DexScreener trade counts — the enrich call is already paid for.
+// v3.10 WIDER NET: unknown trade counts are NOT a kill — the score's
+// buyPressure component goes null and renormalizes out. Only kill when we
+// positively see too few buys.
 export function tradeKill(t, cfg) {
   const buys = t.buys24h, sells = t.sells24h;
-  if (buys == null || sells == null) return 'trade counts unknown';
-  if (!(buys >= cfg.minBuys24h)) return `buys24h ${buys} < ${cfg.minBuys24h} floor`;
-  if (cfg.requireSells && !(sells > 0)) return 'sells24h = 0 · no exit evidence';
+  if (buys != null && !(buys >= cfg.minBuys24h)) return `buys24h ${buys} < ${cfg.minBuys24h} floor`;
+  if (cfg.requireSells && sells != null && !(sells > 0)) return 'sells24h = 0 · no exit evidence';
   return null;
 }
 
 // ---------------------------------------------------------- VET: rug kill
 // RugCheck holder dossier: dev share, concentration, holder count, rug flags.
 // This is the expensive pass — only the top of the queue reaches it.
+// v3.10 WIDER NET: hard kills ONLY for true rug vectors. A failed dossier
+// fetch is not a kill (scoring renormalizes over known components), and the
+// holder-count floor is dropped — concentration is already punished in the
+// score's holders component, and thin-but-real markets deserve a vetting.
 export async function rugKill(t, cfg) {
   const dossier = await fetchRugReport(t.address);
-  if (!dossier) return { reason: 'rug dossier unavailable', dossier: null };
+  if (!dossier) return { reason: null, dossier: null };
   if (dossier.rugged) return { reason: 'RugCheck flags RUGGED', dossier };
   if (dossier.devPct != null && dossier.devPct > cfg.maxDevPct)
     return { reason: `dev holds ${dossier.devPct.toFixed(1)}% > ${cfg.maxDevPct}% cap`, dossier };
@@ -168,8 +174,6 @@ export async function rugKill(t, cfg) {
     return { reason: `top holder ${dossier.topPct.toFixed(1)}% > ${cfg.maxTopHolderPct}% cap`, dossier };
   if (dossier.top10Pct != null && dossier.top10Pct > cfg.maxTop10Pct)
     return { reason: `top-10 ${dossier.top10Pct.toFixed(1)}% > ${cfg.maxTop10Pct}% cap`, dossier };
-  if (dossier.holderCount != null && dossier.holderCount < cfg.minHolders)
-    return { reason: `holders ${dossier.holderCount} < ${cfg.minHolders} floor · thin`, dossier };
   return { reason: null, dossier };
 }
 
