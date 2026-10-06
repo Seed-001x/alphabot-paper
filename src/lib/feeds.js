@@ -40,6 +40,11 @@ export function recordSnapshots(cands) {
       e.prev = e.last || null;
       e.last = { mc: t.mc, vol: t.vol24h || 0, ts: now };
       if (!e.first) e.first = e.last;
+      // v3.8: rolling history for the accumulation detector — last 12
+      // samples inside the window (monotonic volume-climb detection).
+      e.hist = e.hist || [];
+      e.hist.push({ mc: t.mc, vol: t.vol24h || 0, ts: now });
+      e.hist = e.hist.filter(p => now - p.ts <= WINDOW_MS).slice(-12);
       s[t.address] = e;
     }
     // Prune: drop entries older than the window, then cap by oldest-first.
@@ -76,6 +81,61 @@ export function computeMovers(limit = 40) {
       ((b.volAccel || 0) - (a.volAccel || 0)));
     return out.slice(0, limit);
   } catch { return []; }
+}
+
+// ------------------------------------------------------- accumulation probe
+// v3.8 — ACCUMULATION DETECTOR (user's own trading insight: the money is in
+// buying the slow volume crawl BEFORE the boom, not chasing the pump).
+// From the rolling per-mint snapshot history (mcap + vol per scan cycle):
+//   volGrowth    = vol_now / vol_oldest
+//   volMonotonic = consecutive snapshot-to-snapshot volume increases
+//   mcapChange   = (mc_now - mc_oldest) / mc_oldest
+// Signature: volGrowth >= 1.5 AND volMonotonic >= 3 AND mcapChange < 0.5
+//   → the crawl before the boom: +4 ("ACC +4").
+// Chase guard: mcapChange >= 1.0 (already doubled inside the window)
+//   → −3 ("CHASE −3"), UNLESS buyPressure >= 80 (sustained genuine demand,
+//   not a spike) — then no penalty. <4 snapshots → null (fail-open).
+// Returns { modifier, label } or null. Pure read.
+export function accumulationSignal(t) {
+  try {
+    if (!t || !t.address) return null;
+    const s = loadStore();
+    const e = s[t.address];
+    if (!e || !e.hist || e.hist.length < 4) return null;
+    const h = e.hist;
+    const oldest = h[0];
+    const now = h[h.length - 1];
+    if (!(oldest.mc > 0) || !(oldest.vol > 0) || !(now.vol >= 0)) return null;
+    const volGrowth = now.vol / oldest.vol;
+    let volMonotonic = 0;
+    for (let i = h.length - 1; i > 0; i--) {
+      if (h[i].vol > h[i - 1].vol) volMonotonic++;
+      else break;
+    }
+    const mcapChange = (now.mc - oldest.mc) / oldest.mc;
+    // ACCUMULATION: steady volume crawl, price hasn't boomed yet.
+    if (volGrowth >= 1.5 && volMonotonic >= 3 && mcapChange < 0.5) {
+      return {
+        modifier: 4,
+        label: `ACC +4 · vol climbing ${volGrowth.toFixed(1)}x, mc +${(mcapChange * 100).toFixed(0)}% — accumulation, not yet boomed`,
+      };
+    }
+    // CHASE GUARD: already doubled in-window — don't chase, unless
+    // buyPressure >= 80 signals sustained genuine demand.
+    if (mcapChange >= 1.0) {
+      let bp = null;
+      if (t.buys24h != null && t.sells24h != null && t.buys24h + t.sells24h > 0) {
+        bp = clamp((t.buys24h / (t.buys24h + t.sells24h)) * 160 - 30, 0, 100);
+      }
+      if (!(bp != null && bp >= 80)) {
+        return {
+          modifier: -3,
+          label: `CHASE −3 · already boomed +${(mcapChange * 100).toFixed(0)}% in window — don't chase`,
+        };
+      }
+    }
+    return null;
+  } catch { return null; }
 }
 
 // ------------------------------------------------------------- feed tagging

@@ -23,6 +23,7 @@
 import { fetchTokens } from './dexscreener.js';
 import { calloutCheck } from './callouts.js';
 import { floorEmit } from './floorBus.js';
+import { accumulationSignal } from './feeds.js';
 
 const FETCH_MS = 8000;
 const TOTAL_MS = 20000;
@@ -632,6 +633,25 @@ async function researchInner(t, dossier) {
       bits.push('callouts: ?');
     }
   }
+
+  // (e) ACCUMULATION DETECTOR (v3.8): user's own trading insight — the money
+  // is in buying the slow volume crawl BEFORE the boom, not chasing the pump.
+  // Pure localStorage read (snapshot history), no fetch — always attempted.
+  // +4 on the accumulation signature (vol climbing steadily, price not yet
+  // boomed); −3 chase guard when it already doubled in-window (unless
+  // buyPressure >= 80 = sustained genuine demand). Clamped with the ±10 budget.
+  try {
+    const acc = accumulationSignal(t);
+    if (acc) {
+      modifier += acc.modifier;
+      bits.push(acc.label);
+      rlog(`  └ accumulation → ${acc.label}`, acc.modifier > 0 ? 'grn' : 'red');
+      floorEmit('accum.hit', {
+        mint: t.address, symbol: t.symbol, name: t.name,
+        modifier: acc.modifier, label: acc.label,
+      });
+    }
+  } catch { /* fail-open: fewer than 4 snapshots → null, renormalizes out */ }
 
   modifier = Math.max(-10, Math.min(10, modifier));
   bumpStats({ dossiers: stats.dossiers + 1 });
