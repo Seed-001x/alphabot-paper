@@ -3,6 +3,11 @@
 // Signals, all free + browser-friendly:
 //   a) link discovery — DexScreener pair info: twitter/x, telegram, website
 //      presence (presence only; the sites themselves are never fetched — CORS).
+//   a1) social hunt fallback (v2.9) — when (a) finds ZERO links, actively
+//      hunt: the token's own pump.fun coin page (own socials + description,
+//      keyword-scanned) then a DuckDuckGo web search as last resort for an X
+//      account. Finds are UNVERIFIED: +1 credit (vs +2 verified), always
+//      labeled "(unverified)", never presented as confirmed. Read-only.
 //   b) creator ledger — desk-local history of pump.fun creator addresses:
 //      launch counts observed by this desk. Serial launchers (>5) flagged.
 //      (No public creator-history API exists; the ledger is honest about that.)
@@ -117,10 +122,10 @@ function metaCheck(t) {
 // (v2.5) Real page fetch for candidates that have a website link.
 // Via the r.jina.ai reader proxy (CORS-open, returns page markdown as text).
 // Plain-text keyword scan only — never rendered as HTML (XSS-safe by design).
-// Rate limits: 1 fetch/candidate, ≤3 fetches per 60s window, 2s stagger,
+// Rate limits: 1 fetch/candidate, ≤5 fetches per 60s window, 2s stagger,
 // per-session URL dedupe. Fail-open: anything wrong → null ("no data").
 const READ_MS = 10000;
-const READ_MAX_PER_WINDOW = 3;
+const READ_MAX_PER_WINDOW = 5;
 const READ_WINDOW_MS = 60000;
 const READ_STAGGER_MS = 2000;
 const readUrls = new Set();
@@ -223,6 +228,264 @@ function scheduleRead(fn) {
   return p;
 }
 
+// ---------------------------------------------------------- social hunt (v2.9)
+// Fallback chain for kill-chain survivors with ZERO discovered links.
+// Instead of recording "no links" and moving on, the agent actively hunts:
+//   a) the token's own pump.fun coin page (own socials + description), then
+//   b) a DuckDuckGo web search as a last resort for an X account.
+// HONESTY: everything found here is UNVERIFIED — a matching name is not
+// proof. Credit is smaller than verified links (+1 vs +2), the research line
+// says "(unverified)", and the mini-browser tags these reads visually.
+// Read-only: never follows, messages, or otherwise interacts with accounts.
+// Same budgets as siteRead: shared r.jina.ai window (≤5/60s), 2s stagger,
+// 10s timeout, fail-open everywhere.
+const X_PATH_EXCLUDE = /^(search|home|explore|notifications|messages|i|pumpfun|pumpdotfun|intent|share)$/i;
+const TG_EXCLUDE = /^(pump_tech_updates|pumpfun|pumpdotfun)$/i;
+const NON_PROJECT_DOM = /(pump\.fun|solscan\.io|dexscreener\.com|birdeye\.so|geckoterminal\.com|jup\.ag|raydium\.io|x\.com|twitter\.com|t\.me|t\.co|axiom|gmgn|photon|bullx|padre\.gg|join\.pump\.fun|mypinata\.cloud|images\.pump\.fun|socialimages\.pump\.fun|ipfs\.io|docs\.pump\.fun)/i;
+
+const xHandleRe = /https?:\/\/(?:www\.)?(?:x\.com|twitter\.com)\/([A-Za-z0-9_]{1,15})(?=[?\/\s)\]"']|$)/gi;
+const tgRe = /https?:\/\/(?:www\.)?t\.me\/([A-Za-z0-9_]{5,})/gi;
+const urlRe = /https?:\/\/[^\s)\]"']+/gi;
+
+// The pump.fun coin page is noisy (live feed of OTHER coins with their own
+// X links). Only links in the coin's own header block count: the h1 title
+// line plus the ~10 lines after it (age, mint, social icons, dev row).
+function extractCoinSocials(md, t) {
+  const lines = md.split('\n');
+  const sym = (t.symbol || '').toLowerCase();
+  const name = (t.name || '').toLowerCase();
+  let hi = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^#\s/.test(lines[i])) {
+      const low = lines[i].toLowerCase();
+      if ((sym && sym.length >= 2 && low.includes(sym)) ||
+          (name && name.length >= 3 && low.includes(name))) { hi = i; break; }
+    }
+  }
+  if (hi < 0) return null;
+  const block = lines.slice(hi, hi + 12).join('\n');
+  const out = { x: null, telegram: null, website: null };
+  let m;
+  xHandleRe.lastIndex = 0;
+  while ((m = xHandleRe.exec(block))) {
+    if (X_PATH_EXCLUDE.test(m[1])) continue;
+    if (!out.x) out.x = m[1];
+  }
+  tgRe.lastIndex = 0;
+  while ((m = tgRe.exec(block))) {
+    if (TG_EXCLUDE.test(m[1])) continue;
+    if (!out.telegram) out.telegram = m[1];
+  }
+  urlRe.lastIndex = 0;
+  while ((m = urlRe.exec(block))) {
+    const u = m[0].replace(/[.,;!?]+$/, '');
+    if (!/^https?:\/\//i.test(u) || NON_PROJECT_DOM.test(u)) continue;
+    if (!out.website) out.website = u;
+  }
+  return out;
+}
+
+function extractDescription(md) {
+  const lines = md.split('\n');
+  const si = lines.findIndex(l => /^###\s*Description/i.test(l.trim()));
+  if (si < 0) return '';
+  const out = [];
+  for (let i = si + 1; i < lines.length && out.join('\n').length < 2000; i++) {
+    if (/^###\s/.test(lines[i])) break;
+    if (lines[i].trim()) out.push(lines[i].trim());
+  }
+  return out.join('\n').slice(0, 2000);
+}
+
+// Reads the token's own pump.fun page. Returns { socials, kwDelta, kwVerdict }
+// or null. Emits the same bread-* events as siteRead so the mini-browser and
+// crawler wall show the read happening with the real coin URL.
+async function coinPageRead(t) {
+  const url = `https://pump.fun/coin/${t.address}`;
+  const now = Date.now();
+  if (now - readWindow.start > READ_WINDOW_MS) readWindow = { start: now, count: 0 };
+  if (readWindow.count >= READ_MAX_PER_WINDOW) {
+    rlog('  └ hunt → fetch budget spent this cycle', 'dim');
+    return null;
+  }
+  if (readUrls.has(url)) return null;
+
+  return scheduleRead(async () => {
+    const gap = READ_STAGGER_MS - (Date.now() - lastReadAt);
+    if (gap > 0) await sleep(gap);
+    lastReadAt = Date.now();
+    readWindow.count += 1;
+    readUrls.add(url);
+
+    emit('bread-start', { mint: t.address, symbol: t.symbol, url, domain: 'pump.fun', hunt: true });
+    rlog('  └ hunt → reading coin page…', 'dim');
+    let raw;
+    try {
+      raw = await withTimeout(
+        fetch(`https://r.jina.ai/${url}`).then(r => {
+          if (!r.ok) throw new Error(`reader ${r.status}`);
+          return r.text();
+        }),
+        READ_MS
+      );
+    } catch (e) {
+      rlog(`  └ hunt → coin page unreadable (${e.message || 'timeout'})`, 'dim');
+      emit('bread-fail', { mint: t.address, symbol: t.symbol, url, domain: 'pump.fun', reason: e.message || 'timeout' });
+      return null;
+    }
+
+    const socials = extractCoinSocials(raw, t) || { x: null, telegram: null, website: null };
+    const desc = extractDescription(raw);
+    // Focused read: only THIS coin's header + description are shown/scored.
+    // The rest of the page is other coins' live feeds — scoring it would
+    // attribute strangers' keywords to this token.
+    const focusText = [desc ? `Description: ${desc}` : '',
+      socials.x ? `X: https://x.com/${socials.x}` : '',
+      socials.telegram ? `Telegram: https://t.me/${socials.telegram}` : '',
+      socials.website ? `Website: ${socials.website}` : '']
+      .filter(Boolean).join('\n').slice(0, 4000);
+
+    const hits = scanKeywords(focusText);
+    const found = new Set(hits.map(h => h.kw));
+    let delta = 0;
+    const why = [];
+    if (found.has('whitepaper') || found.has('docs')) { delta += 2; why.push('docs/whitepaper'); }
+    if (found.has('audit')) { delta += 2; why.push('audit'); }
+    const riskOcc = hits.filter(h => h.kind === 'risk').reduce((a, h) => a + h.count, 0);
+    if (riskOcc >= 3) { delta -= 4; why.push(`${riskOcc} risk hits`); }
+    const kwVerdict = delta !== 0
+      ? `${delta > 0 ? '+' : ''}${delta} · ${why.join(', ')}`
+      : (focusText.trim() ? '+0 · clean read' : '+0 · no description');
+    const tone = delta > 0 ? 'grn' : delta < 0 ? 'red' : 'dim';
+    rlog(`  └ hunt → coin page: ${hits.length} keyword hits → ${kwVerdict}`, tone);
+    emit('bread-done', {
+      mint: t.address, symbol: t.symbol, url, domain: 'pump.fun',
+      text: focusText || '— coin page loaded, no description or socials in header —',
+      hits, delta, verdict: kwVerdict, unverified: true, hunt: true,
+      trustN: hits.filter(h => h.kind === 'trust').length,
+      riskN: hits.filter(h => h.kind === 'risk').length,
+    });
+    return { socials, kwDelta: delta, kwVerdict };
+  });
+}
+
+// Last resort: web search for the project's X account. Decodes DuckDuckGo's
+// uddg redirect params to real URLs, then matches x.com handles against the
+// token's symbol/name. A matching name is NOT proof — result is unverified.
+async function ddgHunt(t) {
+  const q = encodeURIComponent(`${t.symbol || ''} ${t.name || ''} solana`.trim());
+  const url = `https://html.duckduckgo.com/html/?q=${q}`;
+  const now = Date.now();
+  if (now - readWindow.start > READ_WINDOW_MS) readWindow = { start: now, count: 0 };
+  if (readWindow.count >= READ_MAX_PER_WINDOW) {
+    rlog('  └ hunt → fetch budget spent this cycle', 'dim');
+    return null;
+  }
+  if (readUrls.has(url)) return null;
+
+  return scheduleRead(async () => {
+    const gap = READ_STAGGER_MS - (Date.now() - lastReadAt);
+    if (gap > 0) await sleep(gap);
+    lastReadAt = Date.now();
+    readWindow.count += 1;
+    readUrls.add(url);
+
+    emit('bread-start', { mint: t.address, symbol: t.symbol, url, domain: 'duckduckgo.com', hunt: true });
+    rlog('  └ hunt → searching web for X account…', 'dim');
+    let raw;
+    try {
+      raw = await withTimeout(
+        fetch(`https://r.jina.ai/${url}`).then(r => {
+          if (!r.ok) throw new Error(`reader ${r.status}`);
+          return r.text();
+        }),
+        READ_MS
+      );
+    } catch (e) {
+      rlog(`  └ hunt → search failed (${e.message || 'timeout'})`, 'dim');
+      emit('bread-fail', { mint: t.address, symbol: t.symbol, url, domain: 'duckduckgo.com', reason: e.message || 'timeout' });
+      return null;
+    }
+
+    const urls = [];
+    const uddgRe = /uddg=([^&\s)"']+)/g;
+    let m;
+    while ((m = uddgRe.exec(raw))) {
+      try { urls.push(decodeURIComponent(m[1])); } catch { /* bad escape */ }
+    }
+    const sym = (t.symbol || '').toLowerCase();
+    const nameToks = (t.name || '').toLowerCase().split(/[^a-z0-9]+/).filter(s => s.length >= 3);
+    let best = null, bestScore = 0;
+    xHandleRe.lastIndex = 0;
+    for (const u of urls) {
+      xHandleRe.lastIndex = 0;
+      const xm = xHandleRe.exec(u);
+      if (!xm || X_PATH_EXCLUDE.test(xm[1])) continue;
+      const hl = xm[1].toLowerCase();
+      let s = 0;
+      if (sym && sym.length >= 2 && hl.includes(sym)) s = 3;
+      else if (nameToks.some(tok => hl.includes(tok))) s = 2;
+      if (s > bestScore) { bestScore = s; best = { handle: xm[1], url: u }; }
+    }
+
+    const text = (raw || '').split('\n').filter(l => l.trim()).slice(0, 40).join('\n').slice(0, 4000);
+    if (best) {
+      const verdict = `possible X: @${best.handle} (unverified)`;
+      rlog(`  └ hunt → search: @${best.handle} (unverified)`, 'grn');
+      emit('bread-done', {
+        mint: t.address, symbol: t.symbol, url, domain: 'duckduckgo.com',
+        text, hits: [], delta: 0, verdict, unverified: true, hunt: true,
+      });
+      return best;
+    }
+    rlog('  └ hunt → search: no X match', 'dim');
+    emit('bread-done', {
+      mint: t.address, symbol: t.symbol, url, domain: 'duckduckgo.com',
+      text, hits: [], delta: 0, verdict: 'no X match', unverified: true, hunt: true,
+    });
+    return null;
+  });
+}
+
+// The fallback chain itself. Returns { delta, line, count } or null.
+// Always resolves. Never throws.
+async function socialHunt(t, deadline) {
+  rlog('  └ hunt → 0 links, hunting socials…', 'dim');
+  floorEmit('hunt.start', { mint: t.address, symbol: t.symbol, name: t.name });
+  const parts = [];
+  let delta = 0;
+  let foundX = false;
+
+  // 1) the token's own pump.fun page: own socials + description
+  if (Date.now() < deadline) {
+    const coin = await coinPageRead(t);
+    if (coin) {
+      const s = coin.socials;
+      if (s.x) { delta += 1; foundX = true; parts.push(`possible X: @${s.x} (unverified)`); }
+      if (s.telegram) { delta += 1; parts.push('possible tg (unverified)'); }
+      if (s.website) { delta += 1; parts.push('possible site (unverified)'); }
+      if (coin.kwDelta) { delta += coin.kwDelta; parts.push(`read: ${coin.kwVerdict}`); }
+      bumpStats({ links: stats.links + (s.x || s.telegram || s.website ? 1 : 0) });
+    }
+  }
+
+  // 2) last resort: web search for an X account
+  if (!foundX && Date.now() < deadline) {
+    const ddg = await ddgHunt(t);
+    if (ddg) {
+      delta += 1; foundX = true;
+      parts.push(`possible X: @${ddg.handle} (unverified, search)`);
+    }
+  }
+
+  const result = parts.length || delta !== 0
+    ? { delta, line: `hunt: ${parts.length ? parts.join(' · ') : 'no socials found'}`, count: parts.length }
+    : null;
+  rlog(`  └ hunt → ${result ? parts.join(' · ') : 'nothing found'}`, result ? 'grn' : 'dim');
+  floorEmit('hunt.done', { mint: t.address, symbol: t.symbol, name: t.name, found: !!result, line: result ? result.line : 'no socials found' });
+  return result;
+}
+
 // ---------------------------------------------------------- main entry
 // researchToken(t, dossier) -> { modifier, line, checks }
 // Always resolves. Never throws. Never kills.
@@ -237,6 +500,7 @@ async function researchInner(t, dossier) {
 
   // (a) link discovery
   let links = null;
+  let zeroLinks = false;
   if (Date.now() < deadline) {
     try {
       links = await linkCheck(t.address);
@@ -246,12 +510,36 @@ async function researchInner(t, dossier) {
       if (links.hasTelegram) { modifier += 2; found.push('telegram'); }
       if (links.hasWebsite) { modifier += 2; found.push('site'); }
       bumpStats({ links: stats.links + found.length });
+      zeroLinks = found.length === 0;
       bits.push(found.length ? `links: ${found.join('+')}` : 'links: none');
       rlog(`  └ links → ${found.length ? found.join(' + ') : 'none found'}`, found.length ? 'grn' : 'dim');
     } catch {
       bumpStats({ checks: stats.checks + 1 });
       bits.push('links: ?');
       rlog('  └ links → no data', 'dim');
+    }
+  }
+
+  // (a1) SOCIAL HUNT FALLBACK (v2.9): zero discovered links → actively hunt
+  // instead of moving on. Coin page first (own socials + description), then
+  // a web search as last resort for an X account. Finds are UNVERIFIED:
+  // smaller credit (+1 vs +2), never presented as confirmed.
+  // Mutually exclusive with the (a2) website read below (that only runs when
+  // a website link was already found), so still ≤1 page read per candidate
+  // here, plus at most one search fetch.
+  if (links && zeroLinks && Date.now() < deadline) {
+    try {
+      const hunt = await socialHunt(t, deadline);
+      bumpStats({ checks: stats.checks + 1 });
+      if (hunt) {
+        modifier += hunt.delta;
+        bits.push(hunt.line);
+      } else {
+        bits.push('hunt: no socials found');
+      }
+    } catch {
+      bits.push('hunt: ?');
+      rlog('  └ hunt → error, skipping', 'dim');
     }
   }
 

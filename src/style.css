@@ -535,3 +535,8 @@ table.ledger tr:hover td { background: rgba(255,43,214,.04); }
 .cw-body .dim { color: var(--faint); }
 @keyframes cwIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @media (max-width: 760px) { .cw-grid { grid-template-columns: 1fr 1fr; } .cw-win.wide { grid-column: 1 / -1; } }
+
+/* v2.9: unverified (hunted) reads get dashed highlights — a matching name is not proof */
+.mb-text.unver .mb-hl { outline: 1px dashed currentColor; outline-offset: 1px; }
+.mb-text.unver .mb-hl.trust { background: transparent; box-shadow: none; }
+.mb-text.unver .mb-hl.risk { background: transparent; box-shadow: none; }

@@ -54,7 +54,7 @@ export default function MiniBrowser() {
         setActiveMint(evt.mint);
         setRevealed(0); setCursor(null); setCallout(null);
       } else if (evt.type === 'bread-done') {
-        const rec = { mint: evt.mint, symbol: evt.symbol, url: evt.url, domain: evt.domain, status: 'done', text: evt.text, hits: evt.hits || [], delta: evt.delta, verdict: evt.verdict, ts: Date.now() };
+        const rec = { mint: evt.mint, symbol: evt.symbol, url: evt.url, domain: evt.domain, status: 'done', text: evt.text, hits: evt.hits || [], delta: evt.delta, verdict: evt.verdict, unverified: !!evt.unverified, hunt: !!evt.hunt, ts: Date.now() };
         setReads((prev) => [...prev.filter(r => r.mint !== evt.mint), rec].slice(-6));
         setActiveMint(evt.mint);
         setRevealed(0); setCursor(null); setCallout(null);
@@ -182,7 +182,7 @@ export default function MiniBrowser() {
           <div className="mb-failed">⚠ page unreadable — no data · modifier +0 <span className="dim">({active.reason || 'fetch failed'})</span></div>
         )}
         {active && active.status === 'done' && (
-          <div className="mb-text">{renderText()}</div>
+          <div className={'mb-text' + (active.unverified ? ' unver' : '')}>{renderText()}</div>
         )}
         {/* robot cursor overlay */}
         {cursor && active && active.status === 'done' && !sweepDone && (
@@ -198,7 +198,7 @@ export default function MiniBrowser() {
           <span>◉ reading {active.domain} · {revealed}/{(active.hits || []).length} keywords<span className="mb-blink">▊</span></span>
         )}
         {active && sweepDone && (
-          <span>✓ {active.domain} · {active.hits.length} keywords · <b className={active.delta > 0 ? 'grn' : active.delta < 0 ? 'red' : ''}>◈ verdict: {active.verdict}</b></span>
+          <span>✓ {active.domain} · {active.hits.length} keywords · <b className={active.delta > 0 ? 'grn' : active.delta < 0 ? 'red' : ''}>◈ verdict: {active.verdict}</b>{active.unverified && <span className="amb"> · ⚠ unverified find</span>}</span>
         )}
         {judge && (
           <span style={{ marginLeft: 10 }}>⚖ <b>JUDGE {judge.legitimacy}/10</b>
