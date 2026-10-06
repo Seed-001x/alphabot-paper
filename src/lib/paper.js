@@ -24,7 +24,7 @@ export function freshPortfolio(bankrollUsd, bankrollSol) {
     signals: [],     // newest first, capped — KILLED + SCORED verdicts
     cooldowns: {},   // mint -> ts
     createdAt: Date.now(),
-    version: 5,      // v3.8: 5-SOL SOL-denominated book — fresh paper portfolio
+    version: 6,      // v3.9: min-1-SOL sizing + $1M MC cap — fresh paper portfolio
   };
 }
 // Resolve a SOL-denominated bankroll to USD at creation. spx = live price when
@@ -43,7 +43,7 @@ export function loadPortfolio(cfg, spx) {
     const raw = localStorage.getItem(PKEY);
     if (raw) {
       const p = JSON.parse(raw);
-      if (p && Array.isArray(p.positions) && p.version === 5) return p;
+      if (p && Array.isArray(p.positions) && p.version === 6) return p;
     }
   } catch {}
   return freshPortfolioFor(cfg, spx);
@@ -170,10 +170,10 @@ export function processResult(p, r, cfg, opts = {}) {
   const isWhale = (t.mc || 0) > (cfg.whaleMcUsd || 500000) && turnover >= (cfg.whaleTurnoverMin || 1);
   const isEarly = !isWhale && (t.mc || 0) < (cfg.earlyMcUsd || 100000) && finalScore >= (cfg.earlyMinScore || 80);
   const solSize = isWhale ? (cfg.whaleSolSize || 2.5)
-    : isEarly ? (cfg.earlySolSize || 1.0)
-    : finalScore >= 85 ? cfg.solSizeTop
-    : finalScore >= 75 ? cfg.solSizeMid : cfg.solSizeBase;
-  const sizeUsd = Math.min(p.cash, (solSize || 0.2) * spx);
+    : isEarly ? (cfg.earlySolSize || 1.5)
+    : finalScore >= 85 ? (cfg.solSizeTop || 2.0)
+    : finalScore >= 75 ? (cfg.solSizeMid || 1.5) : (cfg.solSizeBase || 1.0);
+  const sizeUsd = Math.min(p.cash, (solSize || 1.0) * spx);
   if (!(sizeUsd > 1)) return gate(`cash too low (${fmtUsd(p.cash)})`);
   if (!(t.price > 0)) return gate('no price');
 
@@ -184,7 +184,7 @@ export function processResult(p, r, cfg, opts = {}) {
   p.positions.push({
     mint: t.address, symbol: t.symbol, name: t.name,
     entryMc, entryPrice, entryTs: now,
-    sizeUsd, solSize: (solSize || 0.2), tokens, peakMultiple: 1,
+    sizeUsd, solSize: (solSize || 1.0), tokens, peakMultiple: 1,
     score: finalScore, eliteHit: !!r.eliteHit, flowTag: !!r.flowTag,
     // v3.6 adaptive exits: profile context for the exit policy.
     feeds: t.feeds || null,
@@ -192,7 +192,7 @@ export function processResult(p, r, cfg, opts = {}) {
     entryVol: t.vol24h || null,
   });
   sig.taken = true;
-  sig.reason = `ENTER ${t.symbol} · score ${finalScore}${researchMod ? ` (${researchMod >= 0 ? '+' : ''}${researchMod} research)` : ''}${r.eliteHit ? ` (+${boost} smart flow)` : ''}${isWhale ? ' 🐋 whale-ape' : ''}${isEarly ? ' ⚡ early-ape' : ''} · ${(solSize || 0.2).toFixed(2)} SOL (${fmtUsd(sizeUsd)}) @ ${fmtUsd(entryMc)} MC`;
+  sig.reason = `ENTER ${t.symbol} · score ${finalScore}${researchMod ? ` (${researchMod >= 0 ? '+' : ''}${researchMod} research)` : ''}${r.eliteHit ? ` (+${boost} smart flow)` : ''}${isWhale ? ' 🐋 whale-ape' : ''}${isEarly ? ' ⚡ early-ape' : ''} · ${(solSize || 1.0).toFixed(2)} SOL (${fmtUsd(sizeUsd)}) @ ${fmtUsd(entryMc)} MC`;
   floorEmit('trade.enter', {
     mint: t.address, symbol: t.symbol, name: t.name,
     score: finalScore, sizeUsd, solSize: (solSize || 0.2), entryMc, researchMod,
@@ -261,7 +261,7 @@ export function tick(p, priceMap, eliteSwaps, cfg) {
       mint: pos.mint, symbol: pos.symbol, name: pos.name,
       entryMc: pos.entryMc, exitMc,
       multiple: pos.sizeUsd > 0 ? proceeds / pos.sizeUsd : 1,
-      pnlUsd: pnl,
+      pnlUsd: pnl, solSize: pos.solSize || null,   // v3.9: size carried into history
       holdMs: now - pos.entryTs,
       exitReason: reason,
       entryTs: pos.entryTs, exitTs: now,

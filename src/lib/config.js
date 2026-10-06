@@ -6,31 +6,31 @@ export const DEFAULT_CONFIG = {
   bankroll0: 1000,   // USD fallback ONLY if bankrollSol is unset — applies on reset
   // --- SCAN / VET (kill chain, ascending cost) — pump.fun tuned ---
   minTokenScore: 65,      // entry: token score must clear this (after elite boost)
-  minLiquidityUsd: 3000,
-  minVol24hUsd: 10000,
+  minLiquidityUsd: 2000,  // DEX LP floor — GRADUATED coins only (on-curve skip; the curve IS their liquidity)
+  minVol24hUsd: 5000,    // was 10000 — "with volume" for a young coin is lower
   pumpMinMc: 5000,        // on-curve MC floor
-  pumpMaxMc: 2000000,     // on-curve MC cap (curve completes ~$69k; cap keeps it early)
+  pumpMaxMc: 1000000,     // user's spec: scan under $1M — hard ceiling
   minMc: 50000,           // graduated MC floor
-  maxMc: 30000000,        // graduated MC cap
-  minAgeMin: 5,
+  maxMc: 1000000,         // user's spec: scan under $1M — hard ceiling (was $30M)
+  minAgeMin: 2,           // was 5 — newborns are the trade
   maxPumpAgeHrs: 48,      // on-curve max age (hours)
   maxAgeDays: 7,          // graduated max age (days)
-  minBuys24h: 10,
+  minBuys24h: 5,          // was 10 — young coins have fewer buys
   requireSells: true,
   maxDevPct: 25,          // dev/creator share cap (%)
-  minHolders: 25,         // holder count floor
+  minHolders: 10,         // was 25 — a 3-minute-old coin has ~10 holders
   maxTopHolderPct: 35,    // top holder share cap (%)
   maxTop10Pct: 70,        // top-10 share cap (%)
   eliteBoost: 8,          // score points added on smart-flow confirmation
   // --- TRADE (paper risk engine) ---
   // v3.6 SCALP RETUNE: faster trades → more closed trades → journal fills
   // quicker. TP +30%, SL −15%, trailing −12% arms +10%, 90-min max hold.
-  maxPositions: 8,
-  // v3.7: SOL-denominated position sizing, scaled by conviction (score band).
-  // 65–74 → 0.2 SOL · 75–84 → 0.35 SOL · 85+ → 0.5 SOL. Replaces positionPct.
-  solSizeBase: 0.2,
-  solSizeMid: 0.35,
-  solSizeTop: 0.5,
+  maxPositions: 5,
+  // v3.9: NO small trades — min 1 SOL per entry (user's rule).
+  // 65–74 → 1.0 SOL · 75–84 → 1.5 SOL · 85+ → 2.0 SOL.
+  solSizeBase: 1.0,   // v3.9: NO small trades — min 1 SOL per entry
+  solSizeMid: 1.5,
+  solSizeTop: 2.0,
   // v3.8 WHALE-APE: mc > whaleMcUsd && vol24h/mc ≥ whaleTurnoverMin → whaleSolSize SOL
   whaleMcUsd: 500000,
   whaleTurnoverMin: 1.0,
@@ -38,7 +38,7 @@ export const DEFAULT_CONFIG = {
   // v3.8 EARLY-APE: mc < earlyMcUsd && score ≥ earlyMinScore → earlySolSize SOL
   earlyMcUsd: 100000,
   earlyMinScore: 80,
-  earlySolSize: 1.0,
+  earlySolSize: 1.5,
   takeProfit: 0.30,
   stopLoss: 0.15,
   trailingStop: 0.12,
@@ -54,25 +54,25 @@ export const DEFAULT_CONFIG = {
 export const RISK_META = {
   bankrollSol: { label: 'Starting bankroll', unit: 'SOL', min: 0.1, max: 100, hint: 'Applies on reset only. Virtual SOL — USD book value set at live SOL price.' },
   minTokenScore: { label: 'Min token score', unit: '0–100', min: 0, max: 100, hint: 'Entry bar for the 0–100 token score (after elite boost).' },
-  minLiquidityUsd: { label: 'Min liquidity', unit: 'USD', min: 0, max: 1000000, hint: 'Free-kill floor.' },
-  minVol24hUsd: { label: 'Min 24h volume', unit: 'USD', min: 0, max: 5000000, hint: 'Free-kill floor.' },
+  minLiquidityUsd: { label: 'Min liquidity', unit: 'USD', min: 0, max: 1000000, hint: 'Free-kill floor — GRADUATED coins only (on-curve skip; the curve is their liquidity).' },
+  minVol24hUsd: { label: 'Min 24h volume', unit: 'USD', min: 0, max: 5000000, hint: 'Free-kill floor. $5k = real volume for a young coin.' },
   pumpMinMc: { label: 'Pump min MC (on-curve)', unit: 'USD', min: 0, max: 1000000, hint: 'Free-kill floor for bonding-curve coins.' },
-  pumpMaxMc: { label: 'Pump max MC (on-curve)', unit: 'USD', min: 10000, max: 10000000, hint: 'Free-kill ceiling for bonding-curve coins (curve completes ~$69k).' },
+  pumpMaxMc: { label: 'Pump max MC (on-curve)', unit: 'USD', min: 10000, max: 2000000, hint: 'Hard ceiling $1M — under-1m universe only.' },
   minMc: { label: 'Min market cap (graduated)', unit: 'USD', min: 0, max: 10000000, hint: 'Free-kill floor for graduated coins.' },
-  maxMc: { label: 'Max market cap (graduated)', unit: 'USD', min: 100000, max: 200000000, hint: 'Free-kill ceiling — keeps entries early.' },
-  minAgeMin: { label: 'Min coin age', unit: 'minutes', min: 1, max: 600, hint: 'Skip brand-new launches (sniper/launch chaos).' },
+  maxMc: { label: 'Max market cap (graduated)', unit: 'USD', min: 100000, max: 2000000, hint: 'Hard ceiling $1M — under-1m universe only.' },
+  minAgeMin: { label: 'Min coin age', unit: 'minutes', min: 1, max: 600, hint: '2m — newborns are the trade.' },
   maxPumpAgeHrs: { label: 'Max pump age (on-curve)', unit: 'hours', min: 1, max: 240, hint: 'Free-kill ceiling for bonding-curve coins.' },
   maxAgeDays: { label: 'Max age (graduated)', unit: 'days', min: 1, max: 90, hint: 'Free-kill ceiling for graduated coins.' },
-  minBuys24h: { label: 'Min 24h buys', unit: 'count', min: 1, max: 1000, hint: 'Needs real buy pressure.' },
+  minBuys24h: { label: 'Min 24h buys', unit: 'count', min: 1, max: 1000, hint: '5 — young coins have fewer buys.' },
   maxDevPct: { label: 'Max dev share', unit: '%', min: 5, max: 100, hint: 'Kill if the dev/creator holds more than this.' },
-  minHolders: { label: 'Min holders', unit: 'count', min: 1, max: 500, hint: 'Kill thin holder counts.' },
+  minHolders: { label: 'Min holders', unit: 'count', min: 1, max: 500, hint: '10 — a minutes-old coin has ~10 holders.' },
   maxTopHolderPct: { label: 'Max top-holder share', unit: '%', min: 5, max: 100, hint: 'Kill if the biggest holder owns more than this.' },
   maxTop10Pct: { label: 'Max top-10 share', unit: '%', min: 10, max: 100, hint: 'Kill if the top 10 own more than this.' },
   eliteBoost: { label: 'Smart-flow boost', unit: 'points', min: 0, max: 25, hint: 'Added to score on smart-flow confirmation.' },
-  maxPositions: { label: 'Max open positions', unit: 'count', min: 1, max: 25, hint: 'Concurrent position cap.' },
-  solSizeBase: { label: 'Size · score 65–74', unit: 'SOL', min: 0.01, max: 5, hint: 'Position size for base-conviction entries.' },
-  solSizeMid: { label: 'Size · score 75–84', unit: 'SOL', min: 0.01, max: 5, hint: 'Position size for mid-conviction entries.' },
-  solSizeTop: { label: 'Size · score 85+', unit: 'SOL', min: 0.01, max: 5, hint: 'Position size for highest-conviction entries.' },
+  maxPositions: { label: 'Max open positions', unit: 'count', min: 1, max: 25, hint: '5 — min 1 SOL/trade on a 5-SOL book.' },
+  solSizeBase: { label: 'Size · score 65–74', unit: 'SOL', min: 0.1, max: 5, hint: 'NO small trades — min 1 SOL per entry.' },
+  solSizeMid: { label: 'Size · score 75–84', unit: 'SOL', min: 0.1, max: 5, hint: 'Mid-conviction entries.' },
+  solSizeTop: { label: 'Size · score 85+', unit: 'SOL', min: 0.1, max: 5, hint: 'Highest-conviction entries.' },
   whaleMcUsd: { label: 'Whale MC trigger', unit: 'USD', min: 50000, max: 10000000, hint: 'Whale-ape: MC above this with high volume → whale size.' },
   whaleTurnoverMin: { label: 'Whale volume trigger (turnover = vol24h/mc)', unit: 'ratio', min: 0.1, max: 10, hint: 'Whale-ape: 24h volume ÷ MC must clear this.' },
   whaleSolSize: { label: 'Whale size', unit: 'SOL', min: 0.1, max: 10, hint: 'Position size for whale-ape entries (overrides score bands).' },

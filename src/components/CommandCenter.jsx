@@ -11,6 +11,7 @@ import { fmtUsd, fmtClock } from '../lib/paper.js';
 import MiniBrowser from './MiniBrowser.jsx';
 import FeedsPanel from './FeedsPanel.jsx';
 import BrainPanel from './BrainPanel.jsx';
+import TradeHistory from './TradeHistory.jsx';
 import { useDeskStats, SeatStrip, TheFloor, BottomPanels } from './Floor.jsx';
 
 const short = (a) => (a && a.length > 10 ? `${a.slice(0, 4)}…${a.slice(-4)}` : (a || '?'));
@@ -316,9 +317,13 @@ export default function CommandCenter({ portfolio, priceMap, stats, now, paused,
           brainRemote={serverBrain}
         />
         <BottomPanels d={d} equityArr={portfolio.equity} bankroll0={portfolio.bankroll0} />
-        <FeedsPanel initialRows={feedRows} initialTs={feedTs} />
+        <FeedsPanel initialRows={feedRows} initialTs={feedTs} uptimeSec={backendMode ? backendMode.uptimeSec : null} />
         <BrainPanel remote={serverBrain && serverExitRules ? { brain: serverBrain, exitRules: serverExitRules } : null} />
-        <LiveActivity signals={signals} onStats={setCounts} />
+        <TradeHistory closed={portfolio.closed} />
+        <details className="dbg">
+          <summary>debug log · {counts.scanned} scanned</summary>
+          <LiveActivity signals={signals} onStats={setCounts} />
+        </details>
       </main>
     </>
   );

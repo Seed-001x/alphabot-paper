@@ -883,3 +883,28 @@ body::before { display: none; }
 @media (max-width: 760px) { .br-cols { grid-template-columns: 1fr; } .br-col { border-right: none; border-bottom: 1px solid rgba(255,255,255,.05); } }
 .fd-pp { font-size: 9px; letter-spacing: 1px; color: var(--faint); border: 1px solid rgba(255,255,255,.1); border-radius: 4px; padding: 1px 6px; }
 .fd-pp.on { color: #3dff8f; border-color: rgba(61,255,143,.4); }
+
+/* ---------- v3.9 TRADE HISTORY ---------- */
+.th-list { display: flex; flex-direction: column; }
+.th-row { padding: 9px 4px; border-bottom: 1px solid rgba(255,255,255,.06); }
+.th-row:last-child { border-bottom: none; }
+.th-top { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.th-sym { letter-spacing: 1px; }
+.th-flow { color: #c9a0ff; font-size: 10px; }
+.th-pnl { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.th-tag { font-size: 9px; letter-spacing: 1px; border: 1px solid rgba(255,255,255,.15); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+.th-tag.grn { color: #3dff8f; border-color: rgba(61,255,143,.4); }
+.th-tag.red { color: #ff5d5d; border-color: rgba(255,93,93,.4); }
+.th-tag.amb { color: #ffb84d; border-color: rgba(255,184,77,.4); }
+.th-tag.mag { color: #c9a0ff; border-color: rgba(201,160,255,.4); }
+.th-tag.dim { color: var(--dim); }
+.th-sub { font-size: 10.5px; color: var(--dim); margin-top: 3px; letter-spacing: .4px; font-variant-numeric: tabular-nums; }
+.th-why { font-size: 10px; color: var(--faint); margin-top: 2px; }
+/* ---------- v3.9 debug disclosure (old live-activity feed lives here) ---------- */
+.dbg { margin-top: 10px; border: 1px solid rgba(255,255,255,.07); border-radius: 8px; }
+.dbg > summary { cursor: pointer; padding: 8px 12px; font-size: 10px; letter-spacing: 2px; color: var(--faint); list-style: none; }
+.dbg > summary::-webkit-details-marker { display: none; }
+.dbg > summary::before { content: '▸ '; }
+.dbg[open] > summary::before { content: '▾ '; }
+/* ---------- v3.9 feeds empty reasons ---------- */
+.fd-why { color: var(--faint); font-size: 10.5px; letter-spacing: .4px; padding: 18px 12px; text-align: center; line-height: 1.6; }

@@ -29,7 +29,7 @@ import {
   statsFor, fmtAgo,
 } from './lib/paper.js';
 import { Banner } from './components/Chrome.jsx';
-import { Positions, Trades } from './components/Feed.jsx';
+import { Positions } from './components/Feed.jsx';
 import Settings from './components/Settings.jsx';
 
 const LOG_DEDUP_MS = 20 * 60 * 1000;
@@ -505,6 +505,7 @@ export default function App() {
   const backendModeInfo = {
     mode: backend.mode,
     lastCycleTs: backend.health ? backend.health.lastCycleTs : null,
+    uptimeSec: backend.health ? backend.health.uptimeSec : null,
     url: backend.url,
   };
 
@@ -539,7 +540,6 @@ export default function App() {
           </div>
         )}
         <Positions positions={dispPortfolio.positions} priceMap={priceMap} />
-        <Trades closed={dispPortfolio.closed} />
       </main>
 
       <footer className="foot">

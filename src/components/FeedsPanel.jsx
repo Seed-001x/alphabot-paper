@@ -2,7 +2,10 @@
 // TRENDING / MOVERS), separate from the vetted pipeline. Dense rows like a
 // trading-app feed: symbol, V (24h vol), MC, age, TX. Tap a row -> opens the
 // token's DexScreener page (real link from enrichment) and logs an inspect
-// event. Never faked: rows come only from the live `feeds.ready` bus event.
+// event. Never faked: rows come only from the live `feeds.ready` bus event
+// (local mode) or the server's /api/state snapshot (server mode).
+// v3.9: server seeding adopts fresh snapshots whenever they change (not just
+// once); an empty tab says WHY in one line — never a dead "awaiting" box.
 import { useEffect, useRef, useState } from 'react';
 import { subscribeFloor, floorEmit } from '../lib/floorBus.js';
 import { pumpPortalState } from '../lib/pumpportal.js';
@@ -37,24 +40,36 @@ function FeedRow({ r, extra }) {
   );
 }
 
+const rowsSig = (r) => r
+  ? TABS.map(t => `${t.id}:${((r[t.id] || []).length)}`).join('|') + '#' + (((r.new || [])[0] || {}).mint || '')
+  : '';
+
 // v3.8 backend mode: pass initialRows (+updatedTs) from the server's
 // /api/state so the panel shows data immediately; live bus events keep
-// refreshing it either way.
-export default function FeedsPanel({ initialRows, initialTs }) {
+// refreshing it in local mode.
+export default function FeedsPanel({ initialRows, initialTs, uptimeSec }) {
   const [rows, setRows] = useState(() => initialRows || { new: [], trending: [], movers: [] });
   const [tab, setTab] = useState('trending');
   const [updatedAt, setUpdatedAt] = useState(() => initialTs || null);
   const [pp, setPp] = useState('idle');
-  const seededRef = useRef(false);
+  const lastSigRef = useRef('');
 
-  // Seed once from the server snapshot (first paint); bus events refresh after.
+  // Adopt server snapshots whenever they change (server mode re-polls
+  // /api/state; the first snapshot after a deploy can be legitimately empty).
   useEffect(() => {
-    if (!seededRef.current && initialRows &&
-        ((initialRows.new || []).length + (initialRows.trending || []).length + (initialRows.movers || []).length > 0)) {
-      seededRef.current = true;
-      setRows(initialRows);
-      setUpdatedAt(initialTs || Date.now());
-    }
+    if (!initialRows) return;
+    const s = rowsSig(initialRows);
+    if (s === lastSigRef.current) return;
+    lastSigRef.current = s;
+    const next = { new: initialRows.new || [], trending: initialRows.trending || [], movers: initialRows.movers || [] };
+    setRows(next);
+    setUpdatedAt(initialTs || Date.now());
+    // Default to the first tab that actually has rows — never an empty tab.
+    setTab(prev => {
+      if ((next[prev] || []).length) return prev;
+      for (const t of TABS) if ((next[t.id] || []).length) return t.id;
+      return prev;
+    });
   }, [initialRows, initialTs]);
 
   useEffect(() => subscribeFloor(ev => {
@@ -71,6 +86,19 @@ export default function FeedsPanel({ initialRows, initialTs }) {
 
   const list = rows[tab] || [];
   const ppLabel = pp === 'live' ? 'PP live' : pp === 'probing' ? 'PP probing' : pp === 'dead' ? 'PP retry' : 'PP off';
+
+  // Honest one-line reasons — an empty feed says why, never "awaiting".
+  const emptyWhy = (() => {
+    if (tab === 'trending') return 'trending: DexScreener boosts returned 0 Solana tokens this cycle';
+    if (tab === 'movers') {
+      const m = uptimeSec != null ? Math.floor(uptimeSec / 60) : null;
+      return m != null && m < 30
+        ? `movers: needs 30m of price snapshots — ${m}m in, still collecting`
+        : 'movers: no coins with 30m+ of snapshots right now — still collecting';
+    }
+    return 'new: no fresh launches seen this cycle — rescans every 45s';
+  })();
+
   return (
     <section className="fd-panel">
       <div className="fd-head">
@@ -93,7 +121,7 @@ export default function FeedsPanel({ initialRows, initialTs }) {
         <span>V</span><span>MC</span><span>AGE</span><span>TX</span><span />
       </div>
       <div className="fd-list">
-        {!list.length && <div className="fd-empty">awaiting feed data — fills on the next scan cycle</div>}
+        {!list.length && <div className="fd-why">{emptyWhy}</div>}
         {list.map(r => (
           <FeedRow key={r.mint} r={r} extra={
             tab === 'movers'
