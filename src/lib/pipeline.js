@@ -15,6 +15,7 @@ import { fetchTokens, fetchLatestProfiles, fetchLatestBoosts, tokenView } from '
 import { fetchFreshPumpCoins, fetchRugReport, curveProgress, isOnCurve, PUMP_SUFFIX } from './pumpfun.js';
 import { STABLE_MINTS } from './helius.js';
 import { fmtUsd } from './paper.js';
+import { floorEmit } from './floorBus.js';
 
 export const SCORE_WEIGHTS = { liquidity: 15, holders: 25, buyPressure: 30, curve: 15, age: 15 };
 
@@ -176,13 +177,27 @@ export function scoreToken(t, dossier, cfg) {
 }
 
 // Full VET+SCORE for one candidate. Returns { verdict, score, breakdown, dossier, killReason }.
+// Emits floor events (additive — the return values are the contract).
 export async function vetToken(t, cfg) {
   const fk = freeKill(t, cfg);
-  if (fk) return { verdict: 'KILLED', killReason: fk, killPass: 'free' };
+  if (fk) {
+    floorEmit('vet.kill', { mint: t.address, symbol: t.symbol, name: t.name, killPass: 'free', killReason: fk });
+    return { verdict: 'KILLED', killReason: fk, killPass: 'free' };
+  }
   const tk = tradeKill(t, cfg);
-  if (tk) return { verdict: 'KILLED', killReason: tk, killPass: 'trade' };
+  if (tk) {
+    floorEmit('vet.kill', { mint: t.address, symbol: t.symbol, name: t.name, killPass: 'trade', killReason: tk });
+    return { verdict: 'KILLED', killReason: tk, killPass: 'trade' };
+  }
   const { reason, dossier } = await rugKill(t, cfg);
-  if (reason) return { verdict: 'KILLED', killReason: reason, killPass: 'rug', dossier };
+  if (reason) {
+    floorEmit('vet.kill', { mint: t.address, symbol: t.symbol, name: t.name, killPass: 'rug', killReason: reason });
+    return { verdict: 'KILLED', killReason: reason, killPass: 'rug', dossier };
+  }
   const { score, breakdown } = scoreToken(t, dossier, cfg);
+  floorEmit('vet.scored', {
+    mint: t.address, symbol: t.symbol, name: t.name, score, breakdown,
+    holderCount: dossier && dossier.holderCount != null ? dossier.holderCount : null,
+  });
   return { verdict: 'SCORED', score, breakdown, dossier };
 }

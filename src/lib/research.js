@@ -16,6 +16,7 @@
 // Hard budgets: 8s per fetch, 20s total per candidate.
 
 import { fetchTokens } from './dexscreener.js';
+import { floorEmit } from './floorBus.js';
 
 const FETCH_MS = 8000;
 const TOTAL_MS = 20000;
@@ -120,6 +121,7 @@ async function researchInner(t, dossier) {
   let modifier = 0;
 
   rlog(`▸ ${tag} · opening dossier…`, 'dim');
+  floorEmit('research.start', { mint: t.address, symbol: t.symbol, name: t.name });
 
   // (a) link discovery
   if (Date.now() < deadline) {
@@ -190,6 +192,7 @@ async function researchInner(t, dossier) {
   const arrow = modifier > 0 ? `+${modifier}` : `${modifier}`;
   const tone = modifier > 0 ? 'grn' : modifier < 0 ? 'red' : 'dim';
   rlog(`▸ ${tag} · ${bits.join(' · ')} → ${arrow}`, tone);
+  floorEmit('research.done', { mint: t.address, symbol: t.symbol, name: t.name, modifier, line: bits.join(' · ') });
   return { modifier, line: bits.join(' · '), checks: bits.length };
 }
 
@@ -198,6 +201,7 @@ export async function researchToken(t, dossier) {
     return await withTimeout(researchInner(t, dossier), TOTAL_MS);
   } catch {
     rlog(`▸ ${short(t.address)} ${t.symbol || '???'} · research timeout → +0`, 'dim');
+    floorEmit('research.done', { mint: t.address, symbol: t.symbol, name: t.name, modifier: 0, line: 'no data' });
     return { modifier: 0, line: 'no data', checks: 0 };
   }
 }

@@ -8,7 +8,9 @@ import { getKey } from './lib/helius.js';
 import { fetchTokens, tokenView } from './lib/dexscreener.js';
 import { scanTokens, freeKill, tradeKill, vetToken } from './lib/pipeline.js';
 import { researchToken } from './lib/research.js';
+import { floorEmit } from './lib/floorBus.js';
 import ResearchTerminal from './components/Research.jsx';
+import AgentFloor from './components/AgentFloor.jsx';
 import { ELITE } from './lib/elite.js';
 import { fetchWalletTxns, parseSwaps } from './lib/helius.js';
 import {
@@ -99,11 +101,15 @@ export default function App() {
   const scanCycle = useCallback(async () => {
     if (pausedRef.current || scanning.current) return;
     scanning.current = true;
+    floorEmit('cycle.start', {});
     setSeat('scan', { working: true, val: '…', sub: 'pump.fun firehose + discovery' });
     const p = portfolioRef.current;
     const cfg = configRef.current;
     try {
       const { candidates, discovered } = await scanTokens();
+      // Floor: first ~14 candidates become visible chips (real tokens only).
+      candidates.slice(0, 14).forEach(t =>
+        floorEmit('scan.token', { mint: t.address, symbol: t.symbol, name: t.name, mc: t.mc }));
       setSeat('scan', { live: true, working: false, val: String(discovered), sub: `${candidates.length} enriched · just now` });
 
       setSeat('vet', { working: true, val: '…', sub: 'free + trade kill' });
@@ -111,9 +117,19 @@ export default function App() {
       const survivors = [];
       for (const t of candidates) {
         const fk = freeKill(t, cfg);
-        if (fk) { kills++; emitSignal(processResult(p, { t, verdict: 'KILLED', killReason: fk, killPass: 'free' }, cfg, { silent: true }).signal); continue; }
+        if (fk) {
+          kills++;
+          floorEmit('vet.kill', { mint: t.address, symbol: t.symbol, name: t.name, killPass: 'free', killReason: fk });
+          emitSignal(processResult(p, { t, verdict: 'KILLED', killReason: fk, killPass: 'free' }, cfg, { silent: true }).signal);
+          continue;
+        }
         const tk = tradeKill(t, cfg);
-        if (tk) { kills++; emitSignal(processResult(p, { t, verdict: 'KILLED', killReason: tk, killPass: 'trade' }, cfg, { silent: true }).signal); continue; }
+        if (tk) {
+          kills++;
+          floorEmit('vet.kill', { mint: t.address, symbol: t.symbol, name: t.name, killPass: 'trade', killReason: tk });
+          emitSignal(processResult(p, { t, verdict: 'KILLED', killReason: tk, killPass: 'trade' }, cfg, { silent: true }).signal);
+          continue;
+        }
         survivors.push(t);
       }
 
@@ -273,6 +289,7 @@ export default function App() {
           </div>
         )}
         <Seats seats={seats} />
+        <AgentFloor />
         <ResearchTerminal />
 
         <div className="panel">

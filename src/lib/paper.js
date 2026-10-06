@@ -4,6 +4,7 @@
 // Never promises profit. Not financial advice.
 
 import { STABLE_MINTS } from './helius.js';
+import { floorEmit } from './floorBus.js';
 
 // ------------------------------------------------------------ portfolio
 
@@ -122,7 +123,11 @@ export function processResult(p, r, cfg, opts = {}) {
     entryMc: t.mc,
   };
 
-  const gate = (why) => { sig.reason = `SCORED ${finalScore} · no entry: ${why}`; return done(sig, false); };
+  const gate = (why) => {
+    sig.reason = `SCORED ${finalScore} · no entry: ${why}`;
+    floorEmit('trade.skip', { mint: t.address, symbol: t.symbol, name: t.name, score: finalScore, reason: why });
+    return done(sig, false);
+  };
 
   if (STABLE_MINTS.has(t.address)) return gate('stablecoin excluded');
   if (!(finalScore >= cfg.minTokenScore)) return gate(`score ${finalScore} < ${cfg.minTokenScore} bar`);
@@ -148,6 +153,10 @@ export function processResult(p, r, cfg, opts = {}) {
   });
   sig.taken = true;
   sig.reason = `ENTER ${t.symbol} · score ${finalScore}${researchMod ? ` (${researchMod >= 0 ? '+' : ''}${researchMod} research)` : ''}${r.eliteHit ? ` (+${boost} elite)` : ''} · ${fmtUsd(sizeUsd)} @ ${fmtUsd(entryMc)} MC`;
+  floorEmit('trade.enter', {
+    mint: t.address, symbol: t.symbol, name: t.name,
+    score: finalScore, sizeUsd, entryMc, researchMod,
+  });
   return done(sig, true);
 }
 
@@ -204,6 +213,10 @@ export function tick(p, priceMap, eliteSwaps, cfg) {
     };
     p.closed = [trade, ...(p.closed || [])];
     closed.push(trade);
+    floorEmit('risk.exit', {
+      mint: pos.mint, symbol: pos.symbol, name: pos.name,
+      exitReason: reason, pnlUsd: pnl, multiple: pos.sizeUsd > 0 ? proceeds / pos.sizeUsd : 1,
+    });
   }
   p.positions = keep;
   if (closed.length) snapshotEquity(p, priceMap);
