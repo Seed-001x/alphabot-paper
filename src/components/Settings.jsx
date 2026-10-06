@@ -12,7 +12,7 @@ const ORDER = [
   'bankrollSol', 'minTokenScore',
   'minLiquidityUsd', 'minVol24hUsd', 'minMc', 'maxMc', 'minAgeMin', 'maxAgeDays',
   'minBuys24h', 'maxTopHolderPct', 'maxTop10Pct', 'eliteBoost',
-  'maxPositions', 'solSizeBase', 'solSizeMid', 'solSizeTop', 'whaleMcUsd', 'whaleTurnoverMin', 'whaleSolSize', 'earlyMcUsd', 'earlyMinScore', 'earlySolSize', 'takeProfit', 'stopLoss', 'trailingStop', 'maxHoldHours', 'cooldownMin',
+  'maxPositions', 'solSizeBase', 'solSizeMid', 'solSizeTop', 'earlyMcUsd', 'earlyMinScore', 'earlySolSize', 'takeProfit', 'stopLoss', 'trailingStop', 'maxHoldHours', 'cooldownMin',
   'scanIntervalSec', 'priceIntervalSec',
 ];
 
