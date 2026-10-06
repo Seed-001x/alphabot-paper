@@ -908,3 +908,10 @@ body::before { display: none; }
 .dbg[open] > summary::before { content: '▾ '; }
 /* ---------- v3.9 feeds empty reasons ---------- */
 .fd-why { color: var(--faint); font-size: 10.5px; letter-spacing: .4px; padding: 18px 12px; text-align: center; line-height: 1.6; }
+
+/* v3.15: live research panel — sits on the trading room screen below the floor */
+.research-panel { margin: 10px 0 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 12px; }
+.rp-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.rp-title { font-size: 11px; letter-spacing: 2px; color: var(--dim); }
+.rp-hint { font-size: 10px; color: var(--faint); }
+.research-panel .la { margin: 10px 0 0; }

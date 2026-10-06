@@ -172,7 +172,7 @@ function DetailBody({ item, signals }) {
 
 let laId = 0;
 
-function LiveActivity({ signals, onStats }) {
+function LiveActivity({ signals, onStats, title }) {
   const [items, setItems] = useState([]);
   const [openId, setOpenId] = useState(null);
   const scanRef = useRef({ cid: null, n: 0 });
@@ -253,7 +253,7 @@ function LiveActivity({ signals, onStats }) {
 
   return (
     <section className="la">
-      <div className="la-head"><span className="la-title">◈ LIVE ACTIVITY</span><span className="la-hint">tap a row for detail</span></div>
+      <div className="la-head"><span className="la-title">{title || '◈ LIVE ACTIVITY'}</span><span className="la-hint">tap a row for detail</span></div>
       <div className="la-list">
         {items.length === 0 && <div className="la-empty">desk is warming up — events land here</div>}
         {items.map(it => {
@@ -316,14 +316,16 @@ export default function CommandCenter({ portfolio, priceMap, stats, now, paused,
           now={now}
           brainRemote={serverBrain}
         />
+        {/* v3.15: live research feed on the trading room screen — browser + activity, promoted from debug */}
+        <section className="research-panel">
+          <div className="rp-head"><span className="rp-title">◈ LIVE RESEARCH</span><span className="rp-hint">watch the agent work</span></div>
+          <MiniBrowser />
+          <LiveActivity signals={signals} onStats={setCounts} title="◈ RESEARCH FEED" />
+        </section>
         <BottomPanels d={d} equityArr={portfolio.equity} bankroll0={portfolio.bankroll0} />
         <FeedsPanel initialRows={feedRows} initialTs={feedTs} uptimeSec={backendMode ? backendMode.uptimeSec : null} />
         <BrainPanel remote={serverBrain && serverExitRules ? { brain: serverBrain, exitRules: serverExitRules } : null} />
         <TradeHistory closed={portfolio.closed} />
-        <details className="dbg">
-          <summary>debug log · {counts.scanned} scanned</summary>
-          <LiveActivity signals={signals} onStats={setCounts} />
-        </details>
       </main>
     </>
   );
