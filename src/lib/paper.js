@@ -1,5 +1,5 @@
 // Paper trading engine v2 — token-first. Fake money, real signals.
-// Entries come from token SCORES (0–100), not wallet clusters. Nothing here
+// Entries come from token SCORES (0–100), not copy signals. Nothing here
 // touches real funds: every number is virtual USD held in localStorage.
 // Never promises profit. Not financial advice.
 
@@ -119,7 +119,8 @@ export function processResult(p, r, cfg, opts = {}) {
     score: finalScore, rawScore: r.score,
     researchMod, researchLine: r.researchLine || null,
     breakdown: r.breakdown, dossier: r.dossier || null,
-    eliteHit: !!r.eliteHit, eliteLabels: r.eliteLabels || [],
+    eliteHit: !!r.eliteHit,
+    flowTag: !!r.flowTag,
     entryMc: t.mc,
   };
 
@@ -149,10 +150,10 @@ export function processResult(p, r, cfg, opts = {}) {
     mint: t.address, symbol: t.symbol, name: t.name,
     entryMc, entryPrice, entryTs: now,
     sizeUsd, tokens, peakMultiple: 1,
-    score: finalScore, eliteHit: !!r.eliteHit,
+    score: finalScore, eliteHit: !!r.eliteHit, flowTag: !!r.flowTag,
   });
   sig.taken = true;
-  sig.reason = `ENTER ${t.symbol} · score ${finalScore}${researchMod ? ` (${researchMod >= 0 ? '+' : ''}${researchMod} research)` : ''}${r.eliteHit ? ` (+${boost} elite)` : ''} · ${fmtUsd(sizeUsd)} @ ${fmtUsd(entryMc)} MC`;
+  sig.reason = `ENTER ${t.symbol} · score ${finalScore}${researchMod ? ` (${researchMod >= 0 ? '+' : ''}${researchMod} research)` : ''}${r.eliteHit ? ` (+${boost} smart flow)` : ''} · ${fmtUsd(sizeUsd)} @ ${fmtUsd(entryMc)} MC`;
   floorEmit('trade.enter', {
     mint: t.address, symbol: t.symbol, name: t.name,
     score: finalScore, sizeUsd, entryMc, researchMod,
@@ -184,7 +185,7 @@ export function tick(p, priceMap, eliteSwaps, cfg) {
     } else if (now - pos.entryTs >= cfg.maxHoldHours * 3600e3) {
       reason = `max hold ${cfg.maxHoldHours}h reached`;
     } else if (eliteSwaps) {
-      // Smart-money exit: ≥2 elite wallets sold this token since entry.
+      // Smart-flow exit: ≥2 sells seen this token since entry.
       let sellers = 0;
       const names = [];
       for (const addr of Object.keys(eliteSwaps)) {

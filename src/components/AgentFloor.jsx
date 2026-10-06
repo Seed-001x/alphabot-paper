@@ -67,7 +67,7 @@ function ChipView({ chip, x, y, onTap }) {
   const d = chip.data || {};
   const dispScore = d.finalScore != null ? d.finalScore
     : d.score != null ? Math.max(0, Math.min(100, d.score + (d.researchMod || 0))) : null;
-  const color = chip.killed ? '#ff2e63' : (STATIONS[STAGE_IDX[chip.stage] ?? 0] || {}).color || '#41e8ff';
+  const color = chip.killed ? '#ff2e63' : chip.flow ? '#ffd166' : (STATIONS[STAGE_IDX[chip.stage] ?? 0] || {}).color || '#41e8ff';
   return (
     <div
       className={'af-chip' + (chip.killed ? ' killed' : '') + ((chip.fading || chip.gone) ? ' fade' : '') + (chip.inBin ? ' binned' : '')}
@@ -184,6 +184,7 @@ export default function AgentFloor() {
     if (live.some(c => c.mint === info.mint)) return prev;
     const chip = {
       mint: info.mint, symbol: info.symbol || '???', name: info.name || '', mc: info.mc,
+      flow: !!info.flow,
       stage: 'scan', queue: [], data: {}, trail: ['SCAN'],
       blocked: false, blockedAt: 0, researchReady: false,
       holdUntil: Date.now() + 800, flash: null, flashAt: 0,

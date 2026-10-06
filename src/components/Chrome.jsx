@@ -19,7 +19,7 @@ export function Header({ equity, pnlPct, openCount, paused, onTogglePaused, onOp
           <div className="hstat"><div className="k">Equity</div><div className="v mag">{fmtUsd(equity)}</div></div>
           <div className="hstat"><div className="k">P&amp;L</div><div className={`v ${pnlCls}`}>{fmtPct(pnlPct)}</div></div>
           <div className="hstat"><div className="k">Open</div><div className="v">{openCount}</div></div>
-          <div className="hstat"><div className="k">Elite intel</div><div className={`v ${eliteOn ? 'grn' : ''}`} style={eliteOn ? {} : { color: 'var(--faint)' }}>{eliteOn ? 'ON' : 'OFF'}</div></div>
+          <div className="hstat"><div className="k">Smart flow</div><div className={`v ${eliteOn ? 'grn' : ''}`} style={eliteOn ? {} : { color: 'var(--faint)' }}>{eliteOn ? 'ON' : 'OFF'}</div></div>
           <div className="clock">{fmtClock(now)}</div>
           <button className={'btn' + (paused ? ' on' : '')} onClick={onTogglePaused}>{paused ? '▶ Resume' : '❚❚ Pause'}</button>
           <button className={'btn' + (roamersOn ? ' grn' : '')} onClick={onToggleRoamers} title="toggle roaming agents">🤖</button>

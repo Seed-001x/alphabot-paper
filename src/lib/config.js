@@ -18,9 +18,9 @@ export const DEFAULT_CONFIG = {
   requireSells: true,
   maxDevPct: 25,          // dev/creator share cap (%)
   minHolders: 25,         // holder count floor
-  maxTopHolderPct: 35,    // top wallet share cap (%)
+  maxTopHolderPct: 35,    // top holder share cap (%)
   maxTop10Pct: 70,        // top-10 share cap (%)
-  eliteBoost: 8,          // score points added on elite-wallet confirmation
+  eliteBoost: 8,          // score points added on smart-flow confirmation
   // --- TRADE (paper risk engine) ---
   maxPositions: 8,
   positionPct: 0.02,
@@ -51,9 +51,9 @@ export const RISK_META = {
   minBuys24h: { label: 'Min 24h buys', unit: 'count', min: 1, max: 1000, hint: 'Needs real buy pressure.' },
   maxDevPct: { label: 'Max dev share', unit: '%', min: 5, max: 100, hint: 'Kill if the dev/creator holds more than this.' },
   minHolders: { label: 'Min holders', unit: 'count', min: 1, max: 500, hint: 'Kill thin holder counts.' },
-  maxTopHolderPct: { label: 'Max top-holder share', unit: '%', min: 5, max: 100, hint: 'Kill if the biggest wallet owns more than this.' },
+  maxTopHolderPct: { label: 'Max top-holder share', unit: '%', min: 5, max: 100, hint: 'Kill if the biggest holder owns more than this.' },
   maxTop10Pct: { label: 'Max top-10 share', unit: '%', min: 10, max: 100, hint: 'Kill if the top 10 own more than this.' },
-  eliteBoost: { label: 'Elite confirmation boost', unit: 'points', min: 0, max: 25, hint: 'Added to score when an elite wallet holds the token.' },
+  eliteBoost: { label: 'Smart-flow boost', unit: 'points', min: 0, max: 25, hint: 'Added to score on smart-flow confirmation.' },
   maxPositions: { label: 'Max open positions', unit: 'count', min: 1, max: 25, hint: 'Concurrent position cap.' },
   positionPct: { label: 'Position size', unit: '% of cash', min: 1, max: 5, pct: true, hint: 'Risk per trade, as % of cash.' },
   takeProfit: { label: 'Take profit', unit: '% gain', min: 5, max: 500, pct: true, hint: 'Exit when multiple hits this gain.' },

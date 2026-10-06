@@ -1,6 +1,6 @@
 // pump.fun discovery + RugCheck enrichment. No key, CORS: * on both.
 // Discovery: RugCheck new_tokens firehose → mint ends with "pump" (pump.fun
-// mints always carry the pump suffix). Gives exact createAt, creator wallet,
+// mints always carry the pump suffix). Gives exact createAt, creator address,
 // and mint/freeze authority state for free.
 // Enrichment: RugCheck /tokens/{mint}/report — holder distribution, dev
 // holdings, risk flags. Unknown fields stay null, never faked.

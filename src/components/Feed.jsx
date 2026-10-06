@@ -46,7 +46,7 @@ function SignalRow({ s }) {
         <div className="meta">
           {s.killPass ? `[${s.killPass} pass] · ` : ''}
           {s.dossier && s.dossier.topPct != null ? `top ${s.dossier.topPct.toFixed(1)}% · top10 ${s.dossier.top10Pct != null ? s.dossier.top10Pct.toFixed(1) : '?'}% · ` : ''}
-          {s.eliteHit && <span className="elite-tag">⚡ elite: {(s.eliteLabels || []).join(', ')}</span>}
+          {(s.eliteHit || s.flowTag) && <span className="elite-tag">◈ smart flow</span>}
           {s.mint ? <span> · <a href={`https://dexscreener.com/solana/${s.mint}`} target="_blank" rel="noreferrer">chart</a></span> : null}
         </div>
       </div>
@@ -89,7 +89,7 @@ export function Positions({ positions, priceMap }) {
               <div className="row"><span>size</span><b>{fmtUsd(p.sizeUsd)}</b></div>
               <div className="row"><span>value now</span><b>{fmtUsd(cur)}</b></div>
               <div className="row"><span>unrealized</span><b className={cur - p.sizeUsd >= 0 ? 'pnl-pos' : 'pnl-neg'}>{fmtUsd(cur - p.sizeUsd)}</b></div>
-              <div className="row"><span>score @ entry</span><b className="score-num">{p.score ?? '?'}{p.eliteHit ? ' ⚡' : ''}</b></div>
+              <div className="row"><span>score @ entry</span><b className="score-num">{p.score ?? '?'}{(p.eliteHit || p.flowTag) ? ' ◈' : ''}</b></div>
               <div className="row"><span>held</span><b>{fmtDur(Date.now() - p.entryTs)}</b></div>
             </div>
           );
@@ -114,7 +114,7 @@ export function Trades({ closed }) {
             <tbody>
               {list.slice(0, 60).map((c, i) => (
                 <tr key={c.mint + c.exitTs + i}>
-                  <td><b>{c.symbol}</b>{c.eliteHit ? ' ⚡' : ''}</td>
+                  <td><b>{c.symbol}</b>{(c.eliteHit || c.flowTag) ? ' ◈' : ''}</td>
                   <td className={c.pnlUsd >= 0 ? 'pnl-pos' : 'pnl-neg'}>{fmtUsd(c.pnlUsd)}</td>
                   <td>{(c.multiple || 1).toFixed(2)}x</td>
                   <td style={{ color: 'var(--dim)' }}>{c.exitReason}</td>

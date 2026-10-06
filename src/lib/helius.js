@@ -1,4 +1,4 @@
-// Helius client — wallet transaction history, parsed into buys/sells.
+// Helius client — address transaction history, parsed into buys/sells.
 // Runs in the USER'S browser (their IP, their key). CORS: *.
 // NOTE: alphaboard-bot never bakes in an API key — it always comes from
 // the Settings tab and lives only in this browser's localStorage.
@@ -21,8 +21,8 @@ export async function fetchWalletTxns(address, key, limit = 40) {
   return r.json();
 }
 
-// Parse enhanced Helius txns into buys/sells for one wallet.
-// Buy = wallet received token T, paid SOL and/or USDC.
+// Parse enhanced Helius txns into buys/sells for one address.
+// Buy = address received token T, paid SOL and/or USDC.
 export function parseSwaps(txns, wallet) {
   const buys = [], sells = [];
   for (const tx of txns || []) {

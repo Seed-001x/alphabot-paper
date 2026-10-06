@@ -174,6 +174,23 @@ function handleEvent(ev, agents, queueDirty) {
       if (changed) queueDirty();
       break;
     }
+    case 'flow.inject': {
+      // Subtle delivery run: one agent carries the new find in from the edge.
+      const a = nearestIdle(60, vh() * 0.35);
+      if (!a) return;
+      sendTo(a, 60, vh() * 0.35, 300, 'new find incoming', '');
+      a.stats.handled++;
+      a.onArrive = (ag) => holdAnim(ag, 'rm-hop', 700, (ag2) => {
+        ag2.carry = { type: 'flow', label: '◈' };
+        sendTo(ag2, vw() / 2 + rnd(-60, 60), rnd(120, 220), 165, 'delivering find', '');
+        ag2.onArrive = (ag3) => {
+          ag3.carryFade = true;
+          holdAnim(ag3, '', 600, (ag4) => { ag4.carry = null; ag4.carryFade = false; toWander(ag4); });
+        };
+      });
+      queueDirty();
+      break;
+    }
     case 'trade.enter': {
       const c = seatCenter(4);
       const list = idle();
@@ -252,6 +269,7 @@ function CarryChip({ carry, fade }) {
   const cls = 'rm-carry' + (fade ? ' fade' : '');
   if (carry.type === 'kill') return <div className={cls + ' kill'}>✕ {carry.label}</div>;
   if (carry.type === 'buy') return <div className={cls + ' buy'}>◈ {carry.label}</div>;
+  if (carry.type === 'flow') return <div className={cls + ' flow'}>◈</div>;
   const pos = carry.pnl >= 0;
   return (
     <div className={cls + (pos ? ' grn' : ' red')}>

@@ -4,10 +4,12 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { loadConfig, saveConfig } from './lib/config.js';
-import { getKey } from './lib/helius.js';
+import { getKey, STABLE_MINTS } from './lib/helius.js';
 import { fetchTokens, tokenView } from './lib/dexscreener.js';
+import { isOnCurve, curveProgress } from './lib/pumpfun.js';
 import { scanTokens, freeKill, tradeKill, vetToken } from './lib/pipeline.js';
 import { researchToken } from './lib/research.js';
+import { startFlowWatch } from './lib/flowWatch.js';
 import { floorEmit } from './lib/floorBus.js';
 import ResearchTerminal from './components/Research.jsx';
 import AgentFloor from './components/AgentFloor.jsx';
@@ -40,8 +42,8 @@ async function fetchEliteSwaps(key) {
     try {
       const txns = await fetchWalletTxns(w.address, key, 25);
       const { buys, sells } = parseSwaps(txns, w.address);
-      out[w.address] = { label: w.label, buys, sells };
-    } catch { /* one wallet failing never kills the desk */ }
+      out[w.address] = { buys, sells };
+    } catch { /* one failing address never kills the desk */ }
   });
   return out;
 }
@@ -72,6 +74,10 @@ export default function App() {
   const pausedRef = useRef(paused);
   const eliteSwapsRef = useRef(null);
   const loggedRef = useRef(new Map());
+  // Smart-flow injection queue: mints detected by the silent flow watcher.
+  // They enter the normal DD pipeline with zero shortcuts — just a tag.
+  const flowQueueRef = useRef([]);
+  const flowSeenRef = useRef(new Map()); // mint -> ts (90-min dedupe)
   const scanning = useRef(false);
   portfolioRef.current = portfolio;
   configRef.current = config;
@@ -119,9 +125,45 @@ export default function App() {
     const cfg = configRef.current;
     try {
       const { candidates, discovered } = await scanTokens();
+      // Smart-flow injections: mints the silent layer saw bought. Enriched
+      // here, then they run the exact same kill chain as everything else.
+      {
+        const nowQ = Date.now();
+        for (const [m, ts] of flowSeenRef.current) if (nowQ - ts > 90 * 60000) flowSeenRef.current.delete(m);
+        const fresh = [];
+        while (flowQueueRef.current.length && fresh.length < 10) {
+          const m = flowQueueRef.current.shift();
+          if (!m || flowSeenRef.current.has(m)) continue;
+          flowSeenRef.current.set(m, nowQ);
+          fresh.push(m);
+        }
+        if (fresh.length) {
+          try {
+            const raw = await fetchTokens(fresh);
+            for (const m of fresh) {
+              const pair = raw[m];
+              if (!pair) continue;
+              const addr = m;
+              const isPump = addr.endsWith('pump') || isOnCurve(pair);
+              if (!isPump || STABLE_MINTS.has(addr)) continue;
+              const t = tokenView(pair);
+              if (!t || !t.price || !t.mc) continue;
+              const dup = candidates.find(c => c.address === addr);
+              if (dup) { dup.flowTag = true; continue; }
+              const graduated = !isOnCurve(pair);
+              candidates.push({
+                ...t, source: 'flow', graduated,
+                curvePct: graduated ? 100 : curveProgress(t.mc),
+                flowTag: true,
+              });
+            }
+            candidates.sort((a, b) => b.turnover - a.turnover);
+          } catch { /* enrichment failure: flow mints wait for next cycle */ }
+        }
+      }
       // Floor: first ~14 candidates become visible chips (real tokens only).
       candidates.slice(0, 14).forEach(t =>
-        floorEmit('scan.token', { mint: t.address, symbol: t.symbol, name: t.name, mc: t.mc }));
+        floorEmit('scan.token', { mint: t.address, symbol: t.symbol, name: t.name, mc: t.mc, flow: !!t.flowTag }));
       setSeat('scan', { live: true, working: false, val: String(discovered), sub: `${candidates.length} enriched · just now` });
 
       setSeat('vet', { working: true, val: '…', sub: 'free + trade kill' });
@@ -189,17 +231,13 @@ export default function App() {
         scored++;
         scoredVals.push(Math.max(0, Math.min(100, v.score + research.modifier)));
         let eliteHit = false;
-        const eliteLabels = [];
         if (eliteSwaps) {
           for (const addr of Object.keys(eliteSwaps)) {
-            if ((eliteSwaps[addr].buys || []).some(b => b.mint === t.address)) {
-              eliteHit = true;
-              eliteLabels.push(eliteSwaps[addr].label);
-            }
+            if ((eliteSwaps[addr].buys || []).some(b => b.mint === t.address)) { eliteHit = true; break; }
           }
         }
         const { signal, entered } = processResult(
-          p, { t, ...v, eliteHit, eliteLabels, researchMod: research.modifier, researchLine: research.line },
+          p, { t, ...v, eliteHit, flowTag: !!t.flowTag, researchMod: research.modifier, researchLine: research.line },
           cfg, { silent: true });
         if (entered) entries++;
         emitSignal(signal);
@@ -216,6 +254,20 @@ export default function App() {
       scanning.current = false;
     }
   }, []);
+
+  // ---------------- smart-flow watcher: silent background layer ----------------
+  // Dormant without a Helius key. Detected mints enter the DD pipeline —
+  // they are never scored, boosted, or entered on sight.
+  useEffect(() => {
+    const key = getKey();
+    if (!key) return undefined;
+    const h = startFlowWatch(key, (mint) => {
+      if (!mint) return;
+      flowQueueRef.current.push(mint);
+      floorEmit('flow.inject', { mint });
+    });
+    return () => h.stop();
+  }, [keyState]);
 
   // ---------------- RISK: price tick + exits ----------------
   const priceTick = useCallback(async () => {

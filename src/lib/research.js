@@ -3,7 +3,7 @@
 // Signals, all free + browser-friendly:
 //   a) link discovery — DexScreener pair info: twitter/x, telegram, website
 //      presence (presence only; the sites themselves are never fetched — CORS).
-//   b) creator ledger — desk-local history of pump.fun creator wallets:
+//   b) creator ledger — desk-local history of pump.fun creator addresses:
 //      launch counts observed by this desk. Serial launchers (>5) flagged.
 //      (No public creator-history API exists; the ledger is honest about that.)
 //   c) metadata quality — image presence, name/symbol sanity, copycat-ticker

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { RISK_META } from '../lib/config.js';
 import { getKey, setKey, clearKey } from '../lib/helius.js';
+import { getFlowStats } from '../lib/flowWatch.js';
 import { statsFor, fmtUsd, fmtPct } from '../lib/paper.js';
 
 const ORDER = [
@@ -60,17 +61,24 @@ export default function Settings({ open, onClose, config, onConfig, portfolio, p
           <button className="btn grn" onClick={onClose}>Done</button>
         </div>
 
-        <h3>◈ Elite intel — Helius key</h3>
+        <h3>◈ Smart flow — Helius key</h3>
         <p className="note">
           Optional. The token desk runs fully without it — SCAN/VET/SCORE are all free.
-          The key only powers the <b>elite confirmation boost</b> (+score when a top wallet holds a token)
-          and <b>elite-seller exits</b>. It stays in this browser's localStorage, never in the code.
+          The key enables the silent smart-flow layer: fresh buys get routed into the
+          same due-diligence pipeline as everything else. No shortcuts, no special
+          treatment. It stays in this browser's localStorage, never in the code.
         </p>
         {keyState ? (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span className="note" style={{ color: 'var(--grn)' }}>● key active — elite intel ON</span>
-            <button className="btn" onClick={dropKey}>Remove</button>
-          </div>
+          <>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span className="note" style={{ color: 'var(--grn)' }}>● key active — smart flow ON</span>
+              <button className="btn" onClick={dropKey}>Remove</button>
+            </div>
+            <p className="note" style={{ marginTop: 6 }}>
+              Helius usage this session: <b>{getFlowStats().requests}</b> requests ·
+              burn ≈ {getFlowStats().batch * 20}/hr polling + parses on fresh activity only.
+            </p>
+          </>
         ) : (
           <>
             <div className="key-row">
@@ -78,7 +86,7 @@ export default function Settings({ open, onClose, config, onConfig, portfolio, p
               <button className="btn" onClick={saveKey}>Save</button>
             </div>
             {keyErr && <p className="err">{keyErr}</p>}
-            <p className="note">Free at <a href="https://www.helius.dev" target="_blank" rel="noreferrer">helius.dev</a>.</p>
+            <p className="note">Add a Helius key to enable smart-flow detection. Free at <a href="https://www.helius.dev" target="_blank" rel="noreferrer">helius.dev</a>.</p>
           </>
         )}
 
