@@ -11,6 +11,7 @@ import { researchToken } from './lib/research.js';
 import { floorEmit } from './lib/floorBus.js';
 import ResearchTerminal from './components/Research.jsx';
 import AgentFloor from './components/AgentFloor.jsx';
+import Roamers from './components/Roamers.jsx';
 import { ELITE } from './lib/elite.js';
 import { fetchWalletTxns, parseSwaps } from './lib/helius.js';
 import {
@@ -54,6 +55,17 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [keyState, setKeyState] = useState(getKey());
   const [now, setNow] = useState(Date.now());
+  const [roamersOn, setRoamersOn] = useState(() => {
+    try { return localStorage.getItem('alphabot_roamers_v2') !== 'off'; } catch { return true; }
+  });
+
+  function toggleRoamers() {
+    setRoamersOn((prev) => {
+      const next = !prev;
+      try { localStorage.setItem('alphabot_roamers_v2', next ? 'on' : 'off'); } catch { /* ignore */ }
+      return next;
+    });
+  }
 
   const portfolioRef = useRef(portfolio);
   const configRef = useRef(config);
@@ -281,6 +293,8 @@ export default function App() {
         onOpenSettings={() => setSettingsOpen(true)}
         now={now}
         eliteOn={!!keyState}
+        roamersOn={roamersOn}
+        onToggleRoamers={toggleRoamers}
       />
       <main className="wrap">
         {paused && (
@@ -331,6 +345,7 @@ export default function App() {
         keyState={keyState}
         onKeySaved={setKeyState}
       />
+      {roamersOn && <Roamers />}
     </>
   );
 }

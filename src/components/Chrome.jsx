@@ -9,7 +9,7 @@ export function Banner() {
   );
 }
 
-export function Header({ equity, pnlPct, openCount, paused, onTogglePaused, onOpenSettings, now, eliteOn }) {
+export function Header({ equity, pnlPct, openCount, paused, onTogglePaused, onOpenSettings, now, eliteOn, roamersOn, onToggleRoamers }) {
   const pnlCls = pnlPct == null ? 'mag' : pnlPct >= 0 ? 'grn' : 'red';
   return (
     <header className="hdr">
@@ -22,6 +22,7 @@ export function Header({ equity, pnlPct, openCount, paused, onTogglePaused, onOp
           <div className="hstat"><div className="k">Elite intel</div><div className={`v ${eliteOn ? 'grn' : ''}`} style={eliteOn ? {} : { color: 'var(--faint)' }}>{eliteOn ? 'ON' : 'OFF'}</div></div>
           <div className="clock">{fmtClock(now)}</div>
           <button className={'btn' + (paused ? ' on' : '')} onClick={onTogglePaused}>{paused ? '▶ Resume' : '❚❚ Pause'}</button>
+          <button className={'btn' + (roamersOn ? ' grn' : '')} onClick={onToggleRoamers} title="toggle roaming agents">🤖</button>
           <button className="btn" onClick={onOpenSettings}>⚙ Settings</button>
         </div>
       </div>
