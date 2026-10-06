@@ -19,7 +19,7 @@ export default function Equity({ points, bankroll0 }) {
   if (!geo) return <div className="empty">equity curve builds as the desk trades</div>;
 
   const up = geo.last >= bankroll0;
-  const stroke = up ? '#3dff8f' : '#ff2e63';
+  const stroke = up ? '#3ECF8E' : '#F0665E';
   return (
     <svg className="eq-svg" viewBox={`0 0 ${geo.w} ${geo.h}`} preserveAspectRatio="none">
       <defs>
@@ -32,7 +32,7 @@ export default function Equity({ points, bankroll0 }) {
           <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
         </filter>
       </defs>
-      <line x1="0" y1={geo.baseY} x2={geo.w} y2={geo.baseY} stroke="#ff2bd6" strokeWidth="1" strokeDasharray="5 4" opacity="0.5" vectorEffect="non-scaling-stroke" />
+      <line x1="0" y1={geo.baseY} x2={geo.w} y2={geo.baseY} stroke="#8B7CF6" strokeWidth="1" strokeDasharray="5 4" opacity="0.5" vectorEffect="non-scaling-stroke" />
       <path d={geo.area} fill="url(#eqfill)" />
       <path d={geo.path} fill="none" stroke={stroke} strokeWidth="2" filter="url(#eqglow)" vectorEffect="non-scaling-stroke" />
     </svg>

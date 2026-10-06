@@ -9,14 +9,14 @@ import { useEffect, useRef, useState } from 'react';
 import { subscribeFloor } from '../lib/floorBus.js';
 
 const STATIONS = [
-  { id: 'scan', name: 'SCAN', color: '#41e8ff' },
-  { id: 'vet', name: 'VET', color: '#ff2bd6' },
-  { id: 'research', name: 'RESEARCH', color: '#3dff8f' },
-  { id: 'score', name: 'SCORE', color: '#ffb02e' },
-  { id: 'trade', name: 'TRADE', color: '#ff7ae2' },
+  { id: 'scan', name: 'SCAN', color: '#2DD4BF' },
+  { id: 'vet', name: 'VET', color: '#8B7CF6' },
+  { id: 'research', name: 'RESEARCH', color: '#3ECF8E' },
+  { id: 'score', name: 'SCORE', color: '#E5B567' },
+  { id: 'trade', name: 'TRADE', color: '#8B7CF6' },
   { id: 'vault', name: 'VAULT', color: '#b48cff' },
 ];
-const RISK = { id: 'risk', name: 'RISK', color: '#ff2e63' };
+const RISK = { id: 'risk', name: 'RISK', color: '#F0665E' };
 const STAGE_IDX = { scan: 0, vet: 1, research: 2, score: 3, trade: 4, vault: 5 };
 const MAX_CHIPS = 12;
 const BD_LABELS = { liquidity: 'liquidity', holders: 'holders', buyPressure: 'buy pressure', curve: 'curve', age: 'age' };
@@ -67,7 +67,7 @@ function ChipView({ chip, x, y, onTap }) {
   const d = chip.data || {};
   const dispScore = d.finalScore != null ? d.finalScore
     : d.score != null ? Math.max(0, Math.min(100, d.score + (d.researchMod || 0))) : null;
-  const color = chip.killed ? '#ff2e63' : chip.flow ? '#ffd166' : (STATIONS[STAGE_IDX[chip.stage] ?? 0] || {}).color || '#41e8ff';
+  const color = chip.killed ? '#F0665E' : chip.flow ? '#E5B567' : (STATIONS[STAGE_IDX[chip.stage] ?? 0] || {}).color || '#2DD4BF';
   return (
     <div
       className={'af-chip' + (chip.killed ? ' killed' : '') + ((chip.fading || chip.gone) ? ' fade' : '') + (chip.inBin ? ' binned' : '')}

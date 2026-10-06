@@ -80,7 +80,7 @@ function useDeskStats() {
 }
 
 // ------------------------------------------------------------ tiny charts
-function Spark({ vals, w = 66, h = 26, stroke = '#ff2bd6', fill = true, zero = false }) {
+function Spark({ vals, w = 66, h = 26, stroke = '#8B7CF6', fill = true, zero = false }) {
   const v = (vals || []).filter(x => x != null);
   if (v.length < 2) return <div className="fscr-empty">·</div>;
   const mn = Math.min(...v), mx = Math.max(...v);
@@ -99,7 +99,7 @@ function Spark({ vals, w = 66, h = 26, stroke = '#ff2bd6', fill = true, zero = f
   );
 }
 
-function MiniBars({ vals, w = 66, h = 26, pos = '#3dff8f', neg = '#ff2e63', zero = false }) {
+function MiniBars({ vals, w = 66, h = 26, pos = '#3ECF8E', neg = '#F0665E', zero = false }) {
   const v = (vals || []).slice(-14);
   if (!v.length) return <div className="fscr-empty">·</div>;
   const mx = Math.max(1, ...v.map(x => Math.abs(x)));
@@ -125,10 +125,10 @@ export function Robot({ color, small }) {
     <svg viewBox="0 0 60 78" width={small ? 26 : 34} height={small ? 34 : 44} className="frob">
       <line x1="30" y1="12" x2="30" y2="4" stroke={color} strokeWidth="2" />
       <circle cx="30" cy="4" r="2.6" fill={color} className="frob-ant" />
-      <rect x="14" y="12" width="32" height="22" rx="7" fill="#0a0a10" stroke={color} strokeWidth="2" />
+      <rect x="14" y="12" width="32" height="22" rx="7" fill="#0B0E13" stroke={color} strokeWidth="2" />
       <circle cx="24" cy="23" r="3" fill={color} className="frob-eye" />
       <circle cx="36" cy="23" r="3" fill={color} className="frob-eye" />
-      <rect x="18" y="38" width="24" height="22" rx="6" fill="#0a0a10" stroke={color} strokeWidth="2" />
+      <rect x="18" y="38" width="24" height="22" rx="6" fill="#0B0E13" stroke={color} strokeWidth="2" />
       <circle cx="30" cy="49" r="4" fill="none" stroke={color} strokeWidth="2" />
       <line className="ra-l" x1="18" y1="44" x2="10" y2="52" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <line className="ra-r" x1="42" y1="44" x2="50" y2="52" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -204,12 +204,12 @@ export function SeatStrip({ d, openCount }) {
 // zero pipeline changes. Every movement is triggered by real floorBus
 // events or idle wander — never fake activity.
 const DESKS = [
-  { id: 'scan', name: 'SCAN', color: '#41e8ff', x: 0.08, y: 0.80, row: 'front' },
-  { id: 'vet', name: 'VET', color: '#ff2bd6', x: 0.27, y: 0.80, row: 'front' },
-  { id: 'research', name: 'RESEARCH', color: '#3dff8f', x: 0.46, y: 0.80, row: 'front' },
-  { id: 'score', name: 'SCORE', color: '#ffb02e', x: 0.155, y: 0.42, row: 'back' },
-  { id: 'trade', name: 'TRADE', color: '#ff7ae2', x: 0.345, y: 0.42, row: 'back' },
-  { id: 'risk', name: 'RISK', color: '#ff2e63', x: 0.535, y: 0.42, row: 'back' },
+  { id: 'scan', name: 'SCAN', color: '#2DD4BF', x: 0.08, y: 0.80, row: 'front' },
+  { id: 'vet', name: 'VET', color: '#8B7CF6', x: 0.27, y: 0.80, row: 'front' },
+  { id: 'research', name: 'RESEARCH', color: '#3ECF8E', x: 0.46, y: 0.80, row: 'front' },
+  { id: 'score', name: 'SCORE', color: '#E5B567', x: 0.155, y: 0.42, row: 'back' },
+  { id: 'trade', name: 'TRADE', color: '#8B7CF6', x: 0.345, y: 0.42, row: 'back' },
+  { id: 'risk', name: 'RISK', color: '#F0665E', x: 0.535, y: 0.42, row: 'back' },
 ];
 const THRONE = { x: 0.865, y: 0.58 };
 const STAGE_W = 1000, STAGE_H = 264;
@@ -234,24 +234,24 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 function DeskMonitor({ id, d, equityArr, positions, priceMap }) {
   switch (id) {
     case 'scan':
-      return <Spark vals={d.buckets.map(b => b.n)} stroke="#41e8ff" />;
+      return <Spark vals={d.buckets.map(b => b.n)} stroke="#2DD4BF" />;
     case 'vet': {
       const k = d.kills, p = d.scored;
       const mx = Math.max(1, k, p);
       return (
         <div className="fscr-nums">
-          <div className="fscr-bar"><i style={{ width: `${(k / mx) * 100}%`, background: '#ff2e63' }} /><span>{k}✕</span></div>
-          <div className="fscr-bar"><i style={{ width: `${(p / mx) * 100}%`, background: '#3dff8f' }} /><span>{p}✓</span></div>
+          <div className="fscr-bar"><i style={{ width: `${(k / mx) * 100}%`, background: '#F0665E' }} /><span>{k}✕</span></div>
+          <div className="fscr-bar"><i style={{ width: `${(p / mx) * 100}%`, background: '#3ECF8E' }} /><span>{p}✓</span></div>
         </div>
       );
     }
     case 'research':
-      return <MiniBars vals={d.modifiers} zero pos="#3dff8f" neg="#ff2e63" />;
+      return <MiniBars vals={d.modifiers} zero pos="#3ECF8E" neg="#F0665E" />;
     case 'score':
-      return <MiniBars vals={d.scores} pos="#ffb02e" neg="#ffb02e" />;
+      return <MiniBars vals={d.scores} pos="#E5B567" neg="#E5B567" />;
     case 'trade': {
       const pts = (equityArr || []).slice(-48).map(p => p.v);
-      return <Spark vals={pts} stroke="#ff7ae2" />;
+      return <Spark vals={pts} stroke="#8B7CF6" />;
     }
     case 'risk': {
       const pos = positions || [];
@@ -261,7 +261,7 @@ function DeskMonitor({ id, d, equityArr, positions, priceMap }) {
         const cur = t && t.price ? x.tokens * t.price : x.sizeUsd;
         return cur - x.sizeUsd;
       });
-      return <MiniBars vals={pnls} zero pos="#3dff8f" neg="#ff2e63" />;
+      return <MiniBars vals={pnls} zero pos="#3ECF8E" neg="#F0665E" />;
     }
     default:
       return <div className="fscr-empty">·</div>;
@@ -287,10 +287,10 @@ function WhaleRadar({ whale }) {
       {[14, 26, 38].map(rr => <circle key={rr} cx={c} cy={c} r={rr} fill="none" stroke="rgba(255,43,214,.22)" strokeWidth="1" />)}
       <line x1={c} y1="4" x2={c} y2={W - 4} stroke="rgba(255,43,214,.14)" />
       <line x1="4" y1={c} x2={W - 4} y2={c} stroke="rgba(255,43,214,.14)" />
-      <circle cx={dx.toFixed(1)} cy={dy.toFixed(1)} r="3.4" fill="#ff2e63"><title>dev {whale.devPct?.toFixed(1)}%</title></circle>
-      <circle cx={tx.toFixed(1)} cy={ty.toFixed(1)} r="3.4" fill="#ffb02e"><title>top {whale.topPct?.toFixed(1)}%</title></circle>
-      <circle cx={ox.toFixed(1)} cy={oy.toFixed(1)} r="3.4" fill="#41e8ff"><title>top10 {whale.top10Pct?.toFixed(1)}%</title></circle>
-      <text x={c} y={W - 2} textAnchor="middle" fill="#a07fae" fontSize="7">{short(whale.symbol)}</text>
+      <circle cx={dx.toFixed(1)} cy={dy.toFixed(1)} r="3.4" fill="#F0665E"><title>dev {whale.devPct?.toFixed(1)}%</title></circle>
+      <circle cx={tx.toFixed(1)} cy={ty.toFixed(1)} r="3.4" fill="#E5B567"><title>top {whale.topPct?.toFixed(1)}%</title></circle>
+      <circle cx={ox.toFixed(1)} cy={oy.toFixed(1)} r="3.4" fill="#2DD4BF"><title>top10 {whale.top10Pct?.toFixed(1)}%</title></circle>
+      <text x={c} y={W - 2} textAnchor="middle" fill="#8B93A1" fontSize="7">{short(whale.symbol)}</text>
     </svg>
   );
 }
@@ -299,11 +299,11 @@ function CrownedRobot() {
   return (
     <span className="fcrown-wrap">
       <svg viewBox="0 0 60 30" width="30" height="15" className="fcrown">
-        <path d="M14,26 L18,8 L26,17 L32,4 L38,17 L46,8 L50,26 Z" fill="#ffd166" stroke="#b8860b" strokeWidth="1.6" />
-        <circle cx="18" cy="8" r="2" fill="#ff2bd6" /><circle cx="32" cy="4" r="2" fill="#ff2bd6" /><circle cx="46" cy="8" r="2" fill="#ff2bd6" />
-        <rect x="14" y="24" width="36" height="4" rx="2" fill="#b8860b" />
+        <path d="M14,26 L18,8 L26,17 L32,4 L38,17 L46,8 L50,26 Z" fill="#E5B567" stroke="#8B93A1" strokeWidth="1.6" />
+        <circle cx="18" cy="8" r="2" fill="#8B7CF6" /><circle cx="32" cy="4" r="2" fill="#8B7CF6" /><circle cx="46" cy="8" r="2" fill="#8B7CF6" />
+        <rect x="14" y="24" width="36" height="4" rx="2" fill="#8B93A1" />
       </svg>
-      <Robot color="#ffd166" small />
+      <Robot color="#E5B567" small />
     </span>
   );
 }
@@ -651,7 +651,7 @@ export function TheFloor({ d, equityArr, bankroll0, positions, priceMap, stats, 
           <div className="fg">
             <div className="fg-label">WHALE RADAR</div>
             <WhaleRadar whale={d.whale} />
-            <div className="fg-sub"><i className="fg-k" style={{ background: '#ff2e63' }} />dev <i className="fg-k" style={{ background: '#ffb02e' }} />top <i className="fg-k" style={{ background: '#41e8ff' }} />top10</div>
+            <div className="fg-sub"><i className="fg-k" style={{ background: '#F0665E' }} />dev <i className="fg-k" style={{ background: '#E5B567' }} />top <i className="fg-k" style={{ background: '#2DD4BF' }} />top10</div>
           </div>
         </div>
       </div>

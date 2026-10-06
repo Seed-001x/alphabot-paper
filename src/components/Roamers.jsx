@@ -10,10 +10,10 @@ import { useEffect, useReducer, useRef, useState } from 'react';
 import { subscribeFloor } from '../lib/floorBus.js';
 
 const DEFS = [
-  { id: 'bolt', name: 'Bolt', color: '#41e8ff' },
-  { id: 'nib', name: 'Nibbles', color: '#ff2bd6' },
-  { id: 'sprock', name: 'Sprocket', color: '#3dff8f' },
-  { id: 'pip', name: 'Pip', color: '#ffb02e' },
+  { id: 'bolt', name: 'Bolt', color: '#2DD4BF' },
+  { id: 'nib', name: 'Nibbles', color: '#8B7CF6' },
+  { id: 'sprock', name: 'Sprocket', color: '#3ECF8E' },
+  { id: 'pip', name: 'Pip', color: '#E5B567' },
 ];
 const PAD = 26;
 const rnd = (a, b) => a + Math.random() * (b - a);
