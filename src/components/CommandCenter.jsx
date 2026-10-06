@@ -34,7 +34,7 @@ function todayPnl(equityArr, nowMs) {
 // ------------------------------------------------------------ header (tight)
 // v3.8: mode pill — ● SERVER (green) when rendering the backend's data,
 // ● LOCAL (amber) when the browser runs the pipeline itself. Tap for data age.
-function CommandHeader({ stats, equityArr, openCount, scanned, signalCount, now, paused, onTogglePaused, onOpenSettings, flowOn, backendMode, readOnly }) {
+function CommandHeader({ stats, equityArr, openCount, scanned, signalCount, now, paused, onTogglePaused, onOpenSettings, flowOn, backendMode, readOnly, aggressive, onToggleAggressive }) {
   const today = todayPnl(equityArr, now);
   const tCls = !today ? '' : today.usd >= 0 ? 'grn' : 'red';
   const [modeOpen, setModeOpen] = useState(false);
@@ -70,6 +70,13 @@ function CommandHeader({ stats, equityArr, openCount, scanned, signalCount, now,
           {flowOn && <span className="cc-flowtag" title="smart-flow watcher active">◈</span>}
           <span className="cc-clock">{fmtClock(now)}</span>
           <button className="cc-btn" onClick={onTogglePaused} disabled={readOnly} title={readOnly ? 'read-only in server mode' : (paused ? 'Resume' : 'Pause')}>{paused ? '▶' : '❚❚'}</button>
+          {onToggleAggressive && (
+            <button
+              className={'cc-btn aggro' + (aggressive ? ' on' : '')}
+              onClick={onToggleAggressive}
+              title={aggressive ? 'Aggressive mode ON — tap to calm down' : 'Aggressive mode — continuous in-and-out, learns from every fall'}
+            >{aggressive ? '🔥 AGGRO' : 'AGGRO'}</button>
+          )}
           <button className="cc-btn" onClick={onOpenSettings} title="Settings">⚙</button>
         </div>
       </div>
@@ -283,7 +290,7 @@ function LiveActivity({ signals, onStats, title }) {
 // v3.8 backend mode: portfolio/stats come from the server snapshot;
 // brainRemote/exitRulesRemote/feedRows seed the panels; the floor still
 // animates from translated floorBus events (see App).
-export default function CommandCenter({ portfolio, priceMap, stats, now, paused, onTogglePaused, onOpenSettings, flowOn, backendMode, readOnly, serverBrain, serverExitRules, feedRows, feedTs }) {
+export default function CommandCenter({ portfolio, priceMap, stats, now, paused, onTogglePaused, onOpenSettings, flowOn, backendMode, readOnly, serverBrain, serverExitRules, feedRows, feedTs, aggressive, onToggleAggressive }) {
   const [counts, setCounts] = useState({ scanned: 0, signals: 0 });
   const d = useDeskStats();
   const signals = portfolio.signals || [];
@@ -303,6 +310,8 @@ export default function CommandCenter({ portfolio, priceMap, stats, now, paused,
         flowOn={flowOn}
         backendMode={backendMode}
         readOnly={readOnly}
+        aggressive={aggressive}
+        onToggleAggressive={onToggleAggressive}
       />
       <main className="wrap cc-main">
         <SeatStrip d={d} openCount={stats.openCount} />

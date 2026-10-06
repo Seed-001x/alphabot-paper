@@ -531,6 +531,17 @@ export default function App() {
         serverExitRules={isServer ? backend.data.exitRules : null}
         feedRows={isServer ? backend.data.feeds : null}
         feedTs={isServer ? backend.data.ts : null}
+        aggressive={isServer ? !!((backend.data.config || {}).aggressiveMode) : false}
+        onToggleAggressive={isServer ? async () => {
+          const cur = !!((backend.data.config || {}).aggressiveMode);
+          try {
+            await fetch(`${backend.url}/api/mode`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ on: !cur }),
+            });
+          } catch {}
+        } : null}
       />
       <main className="wrap">
         {effPaused && (

@@ -915,3 +915,16 @@ body::before { display: none; }
 .rp-title { font-size: 11px; letter-spacing: 2px; color: var(--dim); }
 .rp-hint { font-size: 10px; color: var(--faint); }
 .research-panel .la { margin: 10px 0 0; }
+
+/* v3.18: aggressive mode toggle */
+.cc-btn.aggro { border-color: var(--line); color: var(--dim); letter-spacing: 1px; }
+.cc-btn.aggro.on {
+  border-color: #F0665E; color: #F0665E;
+  background: rgba(240,102,94,.12);
+  box-shadow: 0 0 12px rgba(240,102,94,.35);
+  animation: aggro-pulse 1.6s ease-in-out infinite;
+}
+@keyframes aggro-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(240,102,94,.25); }
+  50% { box-shadow: 0 0 16px rgba(240,102,94,.5); }
+}
