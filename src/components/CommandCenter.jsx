@@ -47,7 +47,7 @@ function CommandHeader({ stats, equityArr, openCount, scanned, signalCount, now,
         <div className="cc-hero-inline">
           <span className="cc-hero-val2">{fmtUsd(stats.equity)}</span>
           <span className={'cc-hero-today2 ' + tCls}>
-            {today == null ? '' : `${today.usd >= 0 ? '+' : ''}${fmtUsd(today.usd)} (${(today.pct * 100).toFixed(1)}%)`}
+            {today == null ? '' : `${fmtUsd(today.usd)} (${(today.pct * 100).toFixed(1)}%)`}
           </span>
           <span className="cc-sub2">{openCount} OPEN · {scanned} SCANNED · {signalCount} SIGNALS</span>
         </div>

@@ -68,6 +68,8 @@ export default function App() {
   // Anything else → local mode, exactly as before. Fail-open, never blank.
   const [backendUrl, setBackendUrlState] = useState(getBackendUrl);
   const [backend, setBackend] = useState({ mode: 'local', health: null, data: null, checkedAt: 0, url: getBackendUrl() });
+  // v3.18: optimistic AGGRO toggle — flips instantly, server confirms on next poll.
+  const [aggroLocal, setAggroLocal] = useState(null);
   const backendRef = useRef(backend);
   const seenEvRef = useRef(new Set()); // dedupe for translated server events
 
@@ -531,9 +533,10 @@ export default function App() {
         serverExitRules={isServer ? backend.data.exitRules : null}
         feedRows={isServer ? backend.data.feeds : null}
         feedTs={isServer ? backend.data.ts : null}
-        aggressive={isServer ? !!((backend.data.config || {}).aggressiveMode) : false}
+        aggressive={isServer ? (aggroLocal != null ? aggroLocal : !!((backend.data.config || {}).aggressiveMode)) : false}
         onToggleAggressive={isServer ? async () => {
-          const cur = !!((backend.data.config || {}).aggressiveMode);
+          const cur = aggroLocal != null ? aggroLocal : !!((backend.data.config || {}).aggressiveMode);
+          setAggroLocal(!cur); // instant visual feedback
           try {
             await fetch(`${backend.url}/api/mode`, {
               method: 'POST',
@@ -541,6 +544,7 @@ export default function App() {
               body: JSON.stringify({ on: !cur }),
             });
           } catch {}
+          setTimeout(() => setAggroLocal(null), 5000); // let server state take over
         } : null}
       />
       <main className="wrap">
