@@ -874,3 +874,5 @@ body::before { display: none; }
 .adapt-tag { font-size: 9px; letter-spacing: 1px; color: #c9a0ff; border: 1px solid rgba(201,160,255,.35); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
 .adapt-tag.sm { font-size: 8px; padding: 0 4px; }
 @media (max-width: 760px) { .br-cols { grid-template-columns: 1fr; } .br-col { border-right: none; border-bottom: 1px solid rgba(255,255,255,.05); } }
+.fd-pp { font-size: 9px; letter-spacing: 1px; color: var(--faint); border: 1px solid rgba(255,255,255,.1); border-radius: 4px; padding: 1px 6px; }
+.fd-pp.on { color: #3dff8f; border-color: rgba(61,255,143,.4); }

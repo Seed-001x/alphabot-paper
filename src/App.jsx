@@ -11,6 +11,7 @@ import { scanTokens, freeKill, tradeKill, vetToken } from './lib/pipeline.js';
 import { researchToken } from './lib/research.js';
 import { warmCalloutCache } from './lib/callouts.js';
 import { judgeToken } from './lib/aiJudge.js';
+import { probePumpPortal } from './lib/pumpportal.js';
 import { Q } from './lib/queues.js';
 import { logKill, logTradeEntry, logTradeExit, confirmKills } from './lib/learning.js';
 import { startFlowWatch } from './lib/flowWatch.js';
@@ -329,6 +330,7 @@ export default function App() {
 
   // ---------------- loops ----------------
   useEffect(() => {
+    probePumpPortal(); // PumpPortal WS probe (in-browser; fail-open)
     scanCycle();
     const t = setInterval(scanCycle, Math.max(20, config.scanIntervalSec) * 1000);
     return () => clearInterval(t);

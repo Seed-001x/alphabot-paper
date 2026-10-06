@@ -5,6 +5,7 @@
 // event. Never faked: rows come only from the live `feeds.ready` bus event.
 import { useEffect, useState } from 'react';
 import { subscribeFloor, floorEmit } from '../lib/floorBus.js';
+import { pumpPortalState } from '../lib/pumpportal.js';
 import { fmtUsd, fmtAgo } from '../lib/paper.js';
 
 const TABS = [
@@ -40,6 +41,7 @@ export default function FeedsPanel() {
   const [rows, setRows] = useState({ new: [], trending: [], movers: [] });
   const [tab, setTab] = useState('trending');
   const [updatedAt, setUpdatedAt] = useState(null);
+  const [pp, setPp] = useState('idle');
 
   useEffect(() => subscribeFloor(ev => {
     if (ev.type === 'feeds.ready' && ev.new) {
@@ -48,11 +50,18 @@ export default function FeedsPanel() {
     }
   }), []);
 
+  useEffect(() => {
+    const t = setInterval(() => { try { setPp(pumpPortalState()); } catch { /* noop */ } }, 5000);
+    return () => clearInterval(t);
+  }, []);
+
   const list = rows[tab] || [];
+  const ppLabel = pp === 'live' ? 'PP live' : pp === 'probing' ? 'PP probing' : pp === 'dead' ? 'PP retry' : 'PP off';
   return (
     <section className="fd-panel">
       <div className="fd-head">
         <span className="fd-title">FEEDS</span>
+        <span className={'fd-pp' + (pp === 'live' ? ' on' : '')} title="PumpPortal websocket new-token stream (in-browser probe)">{ppLabel}</span>
         <div className="fd-tabs">
           {TABS.map(t => (
             <button key={t.id}

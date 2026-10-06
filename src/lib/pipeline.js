@@ -15,6 +15,7 @@ import { fetchTokens, fetchLatestProfiles, fetchLatestBoosts, tokenView } from '
 import { fetchFreshPumpCoins, fetchRugReport, curveProgress, isOnCurve, PUMP_SUFFIX } from './pumpfun.js';
 import { buildFeeds, momentumScore } from './feeds.js';
 import { getAdaptiveWeights } from './learning.js';
+import { getPumpPortalMints, probePumpPortal } from './pumpportal.js';
 import { STABLE_MINTS } from './helius.js';
 import { fmtUsd } from './paper.js';
 import { floorEmit } from './floorBus.js';
@@ -35,6 +36,7 @@ const isPumpOrigin = (address, pair) =>
 // Hybrid pump.fun discovery → DexScreener batch enrichment → turnover-ranked
 // queue. Ranking orders work, decides nothing.
 export async function scanTokens() {
+  probePumpPortal(); // in-browser WS probe; no-op when live/probing/in backoff
   const [fresh, profiles, boosts] = await Promise.all([
     fetchFreshPumpCoins(40),
     fetchLatestProfiles(60),
@@ -42,6 +44,14 @@ export async function scanTokens() {
   ]);
   const meta = new Map(); // address -> pump metadata
   for (const f of fresh) meta.set(f.address, f);
+  // PumpPortal WS mints — additional NEW-feed source once the socket is live.
+  let ppMints = [];
+  try { ppMints = getPumpPortalMints(); } catch { ppMints = []; }
+  for (const m of ppMints) {
+    if (m.mint && !meta.has(m.mint)) {
+      meta.set(m.mint, { source: 'pumpportal', creator: m.creator || null, createdAt: m.ts });
+    }
+  }
   const addrs = [...meta.keys()];
   for (const s of [...profiles, ...boosts]) {
     if (s.address && !meta.has(s.address)) { meta.set(s.address, { source: s.source }); addrs.push(s.address); }
@@ -60,7 +70,10 @@ export async function scanTokens() {
   }
   // v3.3 feed engine: NEW / TRENDING / MOVERS tags + raw UI rows (additive).
   // MOVERS snapshots record this cycle's mc/vol into the local rolling store.
-  const { tags, movers, rows } = buildFeeds({ fresh, profiles, boosts, enriched });
+  const { tags, movers, rows } = buildFeeds({
+    fresh, profiles, boosts, enriched,
+    ppMints: ppMints.map(m => m.mint).filter(Boolean),
+  });
   try { floorEmit('feeds.ready', rows); } catch { /* fail-open */ }
   const candidates = [];
   for (const a of batch) {

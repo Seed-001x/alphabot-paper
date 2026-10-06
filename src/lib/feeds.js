@@ -85,7 +85,7 @@ export function computeMovers(limit = 40) {
 //   enriched — Map(address -> tokenView + chainId + url)
 // Returns { tags: Map(mint -> ['new','trending','movers']),
 //           rows: { new: [...], trending: [...], movers: [...] } }
-export function buildFeeds({ fresh, profiles, boosts, enriched }) {
+export function buildFeeds({ fresh, profiles, boosts, enriched, ppMints }) {
   const tags = new Map();
   const tag = (mint, f) => {
     if (!mint) return;
@@ -93,7 +93,10 @@ export function buildFeeds({ fresh, profiles, boosts, enriched }) {
     const arr = tags.get(mint);
     if (!arr.includes(f)) arr.push(f);
   };
-  const newSet = new Set((fresh || []).map(f => f.address).filter(Boolean));
+  // NEW = RugCheck firehose + PumpPortal WS stream (when the socket is live).
+  const newSet = new Set(
+    [...(fresh || []).map(f => f.address), ...((ppMints || []))].filter(Boolean)
+  );
   const trendSet = new Set();
   for (const s of [...(profiles || []), ...(boosts || [])]) {
     if (s && s.address) trendSet.add(s.address);
