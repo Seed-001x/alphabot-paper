@@ -3,10 +3,12 @@
 // Purely observational: subscribes to the research event bus, changes nothing.
 import { useEffect, useRef, useState } from 'react';
 import { subscribeResearch, getResearchStats } from '../lib/research.js';
+import MiniBrowser from './MiniBrowser.jsx';
 
 export default function ResearchTerminal() {
   const [lines, setLines] = useState([]);
   const [stats, setStats] = useState(getResearchStats());
+  const [tab, setTab] = useState('log');
   const logRef = useRef(null);
 
   useEffect(() => {
@@ -30,7 +32,12 @@ export default function ResearchTerminal() {
       <h2 className="panel-title">
         <span className="rt-prompt">~/alphabot</span> <span className="rt-chev">❯</span> research --live
         <span className="rt-blink">▊</span>
+        <span className="rt-tabs">
+          <button className={tab === 'log' ? 'on' : ''} onClick={() => setTab('log')}>LOG</button>
+          <button className={tab === 'browser' ? 'on' : ''} onClick={() => setTab('browser')}>BROWSER</button>
+        </span>
       </h2>
+      {tab === 'log' && (<>
       <div className="rt-counters">
         <span>dossiers <b>{stats.dossiers}</b></span>
         <span>checks <b>{stats.checks}</b></span>
@@ -45,6 +52,8 @@ export default function ResearchTerminal() {
           <div key={i} className={'rl-line ' + (l.tone || '')}>{l.text}</div>
         ))}
       </div>
+      </>)}
+      {tab === 'browser' && <MiniBrowser />}
     </div>
   );
 }

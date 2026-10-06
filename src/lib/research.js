@@ -99,7 +99,9 @@ async function linkCheck(address) {
     /telegram/i.test(s.type || '') || /t\.me|telegram/i.test(s.url || ''));
   const hasWebsite = (websites || []).some(w =>
     w.url && !/dexscreener|birdeye|rugcheck|solscan/i.test(w.url));
-  return { hasTwitter, hasTelegram, hasWebsite };
+  const siteUrl = (websites || []).map(w => w.url).find(u =>
+    u && /^https?:\/\//i.test(u) && !/dexscreener|birdeye|rugcheck|solscan/i.test(u)) || null;
+  return { hasTwitter, hasTelegram, hasWebsite, siteUrl };
 }
 
 function metaCheck(t) {
@@ -109,6 +111,116 @@ function metaCheck(t) {
   const sane = !copycat && sym.length >= 2 && sym.length <= 12 &&
     name.length >= 2 && name.length <= 48 && /^[A-Za-z0-9 $._-]+$/.test(sym);
   return { image: !!t.image, copycat, sane };
+}
+
+// ---------------------------------------------------------- site reader
+// (v2.5) Real page fetch for candidates that have a website link.
+// Via the r.jina.ai reader proxy (CORS-open, returns page markdown as text).
+// Plain-text keyword scan only — never rendered as HTML (XSS-safe by design).
+// Rate limits: 1 fetch/candidate, ≤3 fetches per 60s window, 2s stagger,
+// per-session URL dedupe. Fail-open: anything wrong → null ("no data").
+const READ_MS = 10000;
+const READ_MAX_PER_WINDOW = 3;
+const READ_WINDOW_MS = 60000;
+const READ_STAGGER_MS = 2000;
+const readUrls = new Set();
+let readWindow = { start: 0, count: 0 };
+let lastReadAt = 0;
+let readChain = Promise.resolve();
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+const TRUST_KWS = ['audit', 'audited', 'liquidity lock', 'locked liquidity', 'whitepaper', 'docs', 'roadmap', 'team', 'github', 'open source'];
+const RISK_KWS = ['guaranteed', '100x', '1000x', 'moon', 'elon', 'presale bonus', 'send sol', 'double your'];
+
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function scanKeywords(text) {
+  const hits = [];
+  const scan = (kw, kind) => {
+    let m;
+    try { m = text.match(new RegExp(`\\b${escRe(kw)}\\b`, 'gi')); }
+    catch { return; }
+    if (m && m.length) hits.push({ kw, kind, count: m.length });
+  };
+  TRUST_KWS.forEach(k => scan(k, 'trust'));
+  RISK_KWS.forEach(k => scan(k, 'risk'));
+  return hits;
+}
+
+function domainOf(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); }
+  catch { return url; }
+}
+
+// Always resolves. Returns null when skipped/failed (fail-open).
+async function siteRead(url, t, tag) {
+  const domain = domainOf(url);
+  const now = Date.now();
+  if (now - readWindow.start > READ_WINDOW_MS) readWindow = { start: now, count: 0 };
+  if (readWindow.count >= READ_MAX_PER_WINDOW) {
+    rlog('  └ read → fetch budget spent this cycle', 'dim');
+    return null;
+  }
+  if (readUrls.has(url)) return null;
+
+  // Serialize + stagger so concurrent research calls can't burst the proxy.
+  return scheduleRead(async () => {
+    const gap = READ_STAGGER_MS - (Date.now() - lastReadAt);
+    if (gap > 0) await sleep(gap);
+    lastReadAt = Date.now();
+    readWindow.count += 1;
+    readUrls.add(url);
+
+    emit('bread-start', { mint: t.address, symbol: t.symbol, url, domain });
+    rlog(`  └ read → fetching ${domain}…`, 'dim');
+    let raw;
+    try {
+      raw = await withTimeout(
+        fetch(`https://r.jina.ai/${url}`).then(r => {
+          if (!r.ok) throw new Error(`reader ${r.status}`);
+          return r.text();
+        }),
+        READ_MS
+      );
+    } catch (e) {
+      rlog(`  └ read → ${domain} unreadable (${e.message || 'timeout'})`, 'dim');
+      emit('bread-fail', { mint: t.address, symbol: t.symbol, url, domain, reason: e.message || 'timeout' });
+      return null;
+    }
+    const text = (raw || '').split('\n').filter(l => l.trim()).slice(0, 40).join('\n').slice(0, 4000);
+    if (!text.trim()) {
+      rlog(`  └ read → ${domain} empty`, 'dim');
+      emit('bread-fail', { mint: t.address, symbol: t.symbol, url, domain, reason: 'empty' });
+      return null;
+    }
+
+    const hits = scanKeywords(text);
+    const found = new Set(hits.map(h => h.kw));
+    let delta = 0;
+    const why = [];
+    if (found.has('whitepaper') || found.has('docs')) { delta += 2; why.push('docs/whitepaper'); }
+    if (found.has('audit')) { delta += 2; why.push('audit'); }
+    const riskOcc = hits.filter(h => h.kind === 'risk').reduce((a, h) => a + h.count, 0);
+    if (riskOcc >= 3) { delta -= 4; why.push(`${riskOcc} risk hits`); }
+
+    const verdict = delta !== 0
+      ? `${delta > 0 ? '+' : ''}${delta} · ${why.join(', ')}`
+      : `+0 · clean read`;
+    const tone = delta > 0 ? 'grn' : delta < 0 ? 'red' : 'dim';
+    rlog(`  └ read → ${domain}: ${hits.length} keyword hits → ${verdict}`, tone);
+    emit('bread-done', {
+      mint: t.address, symbol: t.symbol, url, domain,
+      text, hits, delta, verdict, trustN: hits.filter(h => h.kind === 'trust').length,
+      riskN: hits.filter(h => h.kind === 'risk').length,
+    });
+    return { delta, verdict };
+  });
+}
+
+function scheduleRead(fn) {
+  const p = readChain.then(fn);
+  readChain = p.catch(() => {});
+  return p;
 }
 
 // ---------------------------------------------------------- main entry
@@ -124,9 +236,10 @@ async function researchInner(t, dossier) {
   floorEmit('research.start', { mint: t.address, symbol: t.symbol, name: t.name });
 
   // (a) link discovery
+  let links = null;
   if (Date.now() < deadline) {
     try {
-      const links = await linkCheck(t.address);
+      links = await linkCheck(t.address);
       bumpStats({ checks: stats.checks + 1 });
       const found = [];
       if (links.hasTwitter) { modifier += 2; found.push('twitter'); }
@@ -139,6 +252,18 @@ async function researchInner(t, dossier) {
       bumpStats({ checks: stats.checks + 1 });
       bits.push('links: ?');
       rlog('  └ links → no data', 'dim');
+    }
+  }
+
+  // (a2) site read — real page fetch + keyword scan (v2.5)
+  // Only when the candidate has a website link. Fail-open: skipped/failed
+  // reads contribute nothing and never block the pipeline.
+  if (links && links.siteUrl && Date.now() < deadline) {
+    const res = await siteRead(links.siteUrl, t, tag);
+    if (res) {
+      modifier += res.delta;
+      bits.push(`read: ${res.verdict}`);
+      bumpStats({ checks: stats.checks + 1 });
     }
   }
 

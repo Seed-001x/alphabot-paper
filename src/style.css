@@ -432,3 +432,75 @@ table.ledger tr:hover td { background: rgba(255,43,214,.04); }
   .rm-flip { height: 36px; }
   .rm-tag { font-size: 7px; }
 }
+
+/* ---------- v2.5 MiniBrowser: the agent actually reading ---------- */
+.rt-tabs { margin-left: auto; display: inline-flex; gap: 4px; }
+.rt-tabs button {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 1px;
+  background: transparent; color: var(--faint);
+  border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; cursor: pointer;
+}
+.rt-tabs button.on { color: var(--grn); border-color: var(--grn); box-shadow: 0 0 8px rgba(61,255,143,.25); }
+.mb-wrap { display: flex; flex-direction: column; gap: 6px; }
+.mb-chrome {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 8px 8px 0 0;
+  padding: 6px 10px;
+}
+.mb-dots { display: flex; gap: 5px; }
+.mb-dots i { width: 9px; height: 9px; border-radius: 50%; display: block; }
+.mb-dots i.r { background: #ff5f57; } .mb-dots i.y { background: #febc2e; } .mb-dots i.g { background: #28c840; }
+.mb-tab {
+  font-size: 11px; color: var(--txt); background: var(--panel);
+  border: 1px solid var(--line); border-bottom: none; border-radius: 6px 6px 0 0;
+  padding: 3px 12px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mb-url {
+  flex: 1; font-size: 10px; color: var(--dim); background: #08040c;
+  border: 1px solid var(--line); border-radius: 12px; padding: 3px 12px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mb-recent { display: flex; gap: 6px; flex-wrap: wrap; }
+.mb-chip {
+  font-family: var(--mono); font-size: 10px; color: var(--dim);
+  background: transparent; border: 1px solid var(--line); border-radius: 10px;
+  padding: 2px 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+}
+.mb-chip.on { color: var(--txt); border-color: var(--mag); }
+.mb-chip .dot { width: 6px; height: 6px; border-radius: 50%; display: block; }
+.mb-chip .dot.grn { background: var(--grn); } .mb-chip .dot.red { background: var(--red); } .mb-chip .dot.amb { background: var(--amb); }
+.mb-body {
+  position: relative; background: #08040c; border: 1px solid var(--line);
+  border-radius: 0 0 8px 8px; min-height: 120px; max-height: 250px; overflow-y: auto;
+  padding: 10px 12px; font-size: 11px; line-height: 1.6;
+}
+.mb-text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--dim); }
+.mb-hl { border-radius: 3px; padding: 0 2px; font-weight: 600; }
+.mb-hl.trust { background: rgba(61,255,143,.16); color: var(--grn); box-shadow: 0 0 6px rgba(61,255,143,.35); }
+.mb-hl.risk { background: rgba(255,46,99,.18); color: var(--red); box-shadow: 0 0 6px rgba(255,46,99,.4); }
+.mb-empty, .mb-failed { color: var(--faint); font-size: 11px; padding: 18px 4px; text-align: center; }
+.mb-failed { color: var(--amb); }
+.mb-failed .dim { color: var(--faint); }
+.mb-loading { display: flex; flex-direction: column; gap: 8px; padding: 6px 0; }
+.mb-shimmer {
+  height: 10px; border-radius: 5px;
+  background: linear-gradient(90deg, #140a1a 25%, #241232 50%, #140a1a 75%);
+  background-size: 200% 100%; animation: mbshim 1.2s linear infinite;
+}
+@keyframes mbshim { to { background-position: -200% 0; } }
+.mb-status { color: var(--cyn); font-size: 11px; }
+.mb-cursor { position: absolute; top: 0; left: 0; z-index: 5; pointer-events: none; transition: transform .12s ease-out; }
+.mb-bot { font-size: 16px; filter: drop-shadow(0 0 6px var(--mag)); display: inline-block; animation: mbbob .5s ease-in-out infinite alternate; }
+@keyframes mbbob { to { transform: translateY(-3px) rotate(-8deg); } }
+.mb-callout {
+  position: absolute; left: 20px; top: -6px; white-space: nowrap;
+  font-size: 10px; color: var(--txt); background: #160a20;
+  border: 1px solid var(--mag); border-radius: 6px; padding: 2px 8px;
+  box-shadow: 0 0 10px rgba(255,43,214,.4);
+}
+.mb-statusbar {
+  font-size: 10px; color: var(--dim); border-top: 1px dashed var(--line);
+  padding-top: 6px; min-height: 22px;
+}
+.mb-statusbar .grn { color: var(--grn); } .mb-statusbar .red { color: var(--red); }
+.mb-blink { color: var(--grn); animation: rtblink 1.1s steps(1) infinite; }
