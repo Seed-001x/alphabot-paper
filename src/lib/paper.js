@@ -106,13 +106,17 @@ export function processResult(p, r, cfg, opts = {}) {
     return done(sig, false);
   }
 
-  // SCORED — apply elite boost, then entry gates.
+  // SCORED — apply research nudge, then elite boost, then entry gates.
+  // (research only ever nudges ±10; it cannot kill or clear gates by itself)
   let score = r.score;
+  const researchMod = r.researchMod || 0;
+  score = Math.max(0, Math.min(100, score + researchMod));
   const boost = r.eliteHit ? cfg.eliteBoost : 0;
   const finalScore = Math.min(100, score + boost);
   const sig = {
     ...base, verdict: 'SCORED',
-    score: finalScore, rawScore: score,
+    score: finalScore, rawScore: r.score,
+    researchMod, researchLine: r.researchLine || null,
     breakdown: r.breakdown, dossier: r.dossier || null,
     eliteHit: !!r.eliteHit, eliteLabels: r.eliteLabels || [],
     entryMc: t.mc,
@@ -143,7 +147,7 @@ export function processResult(p, r, cfg, opts = {}) {
     score: finalScore, eliteHit: !!r.eliteHit,
   });
   sig.taken = true;
-  sig.reason = `ENTER ${t.symbol} · score ${finalScore}${r.eliteHit ? ` (+${boost} elite)` : ''} · ${fmtUsd(sizeUsd)} @ ${fmtUsd(entryMc)} MC`;
+  sig.reason = `ENTER ${t.symbol} · score ${finalScore}${researchMod ? ` (${researchMod >= 0 ? '+' : ''}${researchMod} research)` : ''}${r.eliteHit ? ` (+${boost} elite)` : ''} · ${fmtUsd(sizeUsd)} @ ${fmtUsd(entryMc)} MC`;
   return done(sig, true);
 }
 

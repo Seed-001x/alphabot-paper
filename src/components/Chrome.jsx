@@ -32,6 +32,7 @@ export function Header({ equity, pnlPct, openCount, paused, onTogglePaused, onOp
 const SEAT_DEFS = [
   { id: 'scan', name: 'SCAN' },
   { id: 'vet', name: 'VET' },
+  { id: 'research', name: 'RESEARCH' },
   { id: 'score', name: 'SCORE' },
   { id: 'trade', name: 'TRADE' },
   { id: 'risk', name: 'RISK' },

@@ -7,6 +7,8 @@ import { loadConfig, saveConfig } from './lib/config.js';
 import { getKey } from './lib/helius.js';
 import { fetchTokens, tokenView } from './lib/dexscreener.js';
 import { scanTokens, freeKill, tradeKill, vetToken } from './lib/pipeline.js';
+import { researchToken } from './lib/research.js';
+import ResearchTerminal from './components/Research.jsx';
 import { ELITE } from './lib/elite.js';
 import { fetchWalletTxns, parseSwaps } from './lib/helius.js';
 import {
@@ -131,7 +133,9 @@ export default function App() {
         eliteSwapsRef.current = eliteSwaps;
       }
 
-      const scoredVals = [];
+      // RESEARCH seat: post-kill-chain, pre-score. Fail-open, never kills —
+      // only nudges the score ±10. Runs on kill-chain survivors only.
+      const scoredList = [];
       for (let i = 0; i < vetted.length; i++) {
         const v = vetted[i], t = vetBatch[i];
         if (v.verdict === 'KILLED') {
@@ -139,8 +143,23 @@ export default function App() {
           emitSignal(processResult(p, { t, ...v }, cfg, { silent: true }).signal);
           continue;
         }
+        scoredList.push({ t, v });
+      }
+      let researched = scoredList;
+      if (scoredList.length) {
+        setSeat('research', { working: true, val: '…', sub: `researching ${scoredList.length}` });
+        researched = await mapPool(scoredList, 3, async ({ t, v }) => ({
+          t, v, research: await researchToken(t, v.dossier),
+        }));
+        setSeat('research', { live: true, working: false, val: String(researched.length), sub: 'dossiers read · just now' });
+      } else {
+        setSeat('research', { live: true, working: false, val: '0', sub: 'no survivors · idle' });
+      }
+
+      const scoredVals = [];
+      for (const { t, v, research } of researched) {
         scored++;
-        scoredVals.push(v.score);
+        scoredVals.push(Math.max(0, Math.min(100, v.score + research.modifier)));
         let eliteHit = false;
         const eliteLabels = [];
         if (eliteSwaps) {
@@ -151,7 +170,9 @@ export default function App() {
             }
           }
         }
-        const { signal, entered } = processResult(p, { t, ...v, eliteHit, eliteLabels }, cfg, { silent: true });
+        const { signal, entered } = processResult(
+          p, { t, ...v, eliteHit, eliteLabels, researchMod: research.modifier, researchLine: research.line },
+          cfg, { silent: true });
         if (entered) entries++;
         emitSignal(signal);
       }
@@ -252,6 +273,7 @@ export default function App() {
           </div>
         )}
         <Seats seats={seats} />
+        <ResearchTerminal />
 
         <div className="panel">
           <h2 className="panel-title">◈ Equity · virtual</h2>

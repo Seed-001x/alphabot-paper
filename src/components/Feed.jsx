@@ -40,6 +40,9 @@ function SignalRow({ s }) {
         {!killed && s.score != null && <> · <span className="score-num">{s.score}</span></>}
         <div className="rsn">{s.reason}</div>
         {!killed && <Breakdown breakdown={s.breakdown} />}
+        {!killed && s.researchLine && (
+          <div className="rsn rline">⟁ research {s.researchMod >= 0 ? '+' : ''}{s.researchMod} — {s.researchLine}</div>
+        )}
         <div className="meta">
           {s.killPass ? `[${s.killPass} pass] · ` : ''}
           {s.dossier && s.dossier.topPct != null ? `top ${s.dossier.topPct.toFixed(1)}% · top10 ${s.dossier.top10Pct != null ? s.dossier.top10Pct.toFixed(1) : '?'}% · ` : ''}
