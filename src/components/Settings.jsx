@@ -4,6 +4,7 @@ import { RISK_META } from '../lib/config.js';
 import { getKey, setKey, clearKey } from '../lib/helius.js';
 import { getFlowStats } from '../lib/flowWatch.js';
 import { getAiKey, setAiKey, clearAiKey, getJudgeStats } from '../lib/aiJudge.js';
+import { resetLearning } from '../lib/learning.js';
 import { statsFor, fmtUsd, fmtPct } from '../lib/paper.js';
 
 const ORDER = [
@@ -69,6 +70,7 @@ export default function Settings({ open, onClose, config, onConfig, portfolio, p
         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           <button className={'btn' + (paused ? ' on' : '')} onClick={onTogglePaused}>{paused ? '▶ Resume desk' : '❚❚ Pause desk'}</button>
           <button className="btn" onClick={() => { if (window.confirm('Reset the paper portfolio? This wipes positions, trades and the equity curve.')) onReset(config.bankroll0); }}>↺ Reset</button>
+          <button className="btn" onClick={() => { if (window.confirm('Reset learning? This wipes the kill ledger, trade journal and adapted weights. The desk starts collecting data from scratch.')) { resetLearning(); window.location.reload(); } }}>🧠 Reset learning</button>
           <button className="btn grn" onClick={onClose}>Done</button>
         </div>
 

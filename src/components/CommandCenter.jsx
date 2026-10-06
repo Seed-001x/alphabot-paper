@@ -10,6 +10,7 @@ import { SCORE_WEIGHTS } from '../lib/pipeline.js';
 import { fmtUsd, fmtClock } from '../lib/paper.js';
 import MiniBrowser from './MiniBrowser.jsx';
 import FeedsPanel from './FeedsPanel.jsx';
+import BrainPanel from './BrainPanel.jsx';
 import { useDeskStats, SeatStrip, TheFloor, BottomPanels } from './Floor.jsx';
 
 const short = (a) => (a && a.length > 10 ? `${a.slice(0, 4)}…${a.slice(-4)}` : (a || '?'));
@@ -73,6 +74,7 @@ function SignalDetail({ mint, signals }) {
         </span>
         <b>{s.symbol}</b>
         {!killed && s.score != null && <span className="score-num">{s.score}</span>}
+        {s.adapted && <span className="adapt-tag" title="score weights adapted from the trade journal">adapted</span>}
         <span className="dim">{short(s.mint)}</span>
       </div>
       {s.reason && <div className="la-drow dim">{s.reason}</div>}
@@ -291,6 +293,7 @@ export default function CommandCenter({ portfolio, priceMap, stats, now, paused,
         />
         <BottomPanels d={d} equityArr={portfolio.equity} bankroll0={portfolio.bankroll0} />
         <FeedsPanel />
+        <BrainPanel />
         <LiveActivity signals={signals} onStats={setCounts} />
       </main>
     </>

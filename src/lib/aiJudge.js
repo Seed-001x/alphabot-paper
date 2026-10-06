@@ -8,6 +8,7 @@
 
 import { floorEmit } from './floorBus.js';
 import { subscribeResearch } from './research.js';
+import { getJudgeContext } from './learning.js';
 
 const LS_KEY = 'alphabot_openai_key';
 const MODEL = 'gpt-4o-mini';
@@ -41,6 +42,10 @@ function buildPrompt(t, dossier, research, siteText) {
     `research notes: ${research && research.line ? research.line : 'none'}`,
   ];
   if (siteText) lines.push(`website excerpt: ${String(siteText).slice(0, 1500)}`);
+  // v3.5 — the judge sees the floor's ledgers (weak priors only; it still
+  // judges the token on its merits, never kills/approves/does arithmetic).
+  const ledgerCtx = getJudgeContext(t);
+  if (ledgerCtx) lines.push(ledgerCtx);
   return `You are a memecoin risk analyst. Given the token data, return STRICT JSON ONLY, no other text:\n{"legitimacy": <integer 1-10>, "risk_flags": ["<max 4 short flags>"], "one_liner": "<max 12 words>"}\nlegitimacy: 1 = likely scam/rug, 10 = looks legitimate.\nJudge ONLY. Never recommend buying or selling. Never do math — return the numbers as your judgment.\n\nTOKEN DATA:\n${lines.join('\n')}`;
 }
 

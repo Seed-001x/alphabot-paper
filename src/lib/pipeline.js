@@ -14,6 +14,7 @@
 import { fetchTokens, fetchLatestProfiles, fetchLatestBoosts, tokenView } from './dexscreener.js';
 import { fetchFreshPumpCoins, fetchRugReport, curveProgress, isOnCurve, PUMP_SUFFIX } from './pumpfun.js';
 import { buildFeeds, momentumScore } from './feeds.js';
+import { getAdaptiveWeights } from './learning.js';
 import { STABLE_MINTS } from './helius.js';
 import { fmtUsd } from './paper.js';
 import { floorEmit } from './floorBus.js';
@@ -196,13 +197,18 @@ export function scoreToken(t, dossier, cfg) {
   // token carries no feed tag (renormalizes out, like every other unknown).
   const momentum = momentumScore(t);
 
+  // v3.5: adaptive weights — journal-proven nudges toward predictive
+  // components, bounded ±15%/day, hard floor/ceiling. Cold start → defaults.
+  // Never overrides kill-chain hard kills (score weights only).
+  const { weights: W, adapted } = getAdaptiveWeights(SCORE_WEIGHTS);
+
   const parts = { liquidity, holders, buyPressure, curve, age, momentum };
   let num = 0, den = 0;
-  for (const k of Object.keys(SCORE_WEIGHTS)) {
-    if (parts[k] != null) { num += SCORE_WEIGHTS[k] * parts[k]; den += SCORE_WEIGHTS[k]; }
+  for (const k of Object.keys(W)) {
+    if (parts[k] != null) { num += W[k] * parts[k]; den += W[k]; }
   }
   const score = den > 0 ? Math.round(num / den) : 0;
-  return { score, breakdown: parts };
+  return { score, breakdown: parts, adapted, weights: W };
 }
 
 // Full VET+SCORE for one candidate. Returns { verdict, score, breakdown, dossier, killReason }.
@@ -229,13 +235,14 @@ export async function vetToken(t, cfg) {
     floorEmit('vet.kill', { mint: t.address, symbol: t.symbol, name: t.name, killPass: 'rug', killReason: reason });
     return { verdict: 'KILLED', killReason: reason, killPass: 'rug', dossier };
   }
-  const { score, breakdown } = scoreToken(t, dossier, cfg);
+  const { score, breakdown, adapted, weights } = scoreToken(t, dossier, cfg);
   floorEmit('vet.scored', {
     mint: t.address, symbol: t.symbol, name: t.name, score, breakdown,
+    adapted: !!adapted,
     holderCount: dossier && dossier.holderCount != null ? dossier.holderCount : null,
     buys24h: t.buys24h != null ? t.buys24h : null,
     sells24h: t.sells24h != null ? t.sells24h : null,
     vol24h: t.vol24h != null ? t.vol24h : null,
   });
-  return { verdict: 'SCORED', score, breakdown, dossier };
+  return { verdict: 'SCORED', score, breakdown, dossier, adapted: !!adapted, weights };
 }

@@ -121,6 +121,7 @@ export function processResult(p, r, cfg, opts = {}) {
     calloutLine: r.calloutLine || null,
     judgeMod: r.judgeMod || 0, judgeLine: r.judgeLine || null,
     breakdown: r.breakdown, dossier: r.dossier || null,
+    adapted: !!r.adapted,
     eliteHit: !!r.eliteHit,
     flowTag: !!r.flowTag,
     entryMc: t.mc,

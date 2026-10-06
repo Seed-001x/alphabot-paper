@@ -11,6 +11,8 @@ import { scanTokens, freeKill, tradeKill, vetToken } from './lib/pipeline.js';
 import { researchToken } from './lib/research.js';
 import { warmCalloutCache } from './lib/callouts.js';
 import { judgeToken } from './lib/aiJudge.js';
+import { Q } from './lib/queues.js';
+import { logKill, logTradeEntry, logTradeExit, confirmKills } from './lib/learning.js';
 import { startFlowWatch } from './lib/flowWatch.js';
 import { floorEmit } from './lib/floorBus.js';
 import CommandCenter from './components/CommandCenter.jsx';
@@ -150,17 +152,22 @@ export default function App() {
         }
       }
       // Floor: first ~14 candidates become visible chips (real tokens only).
+      // v3.5 — STAGE QUEUES: scan pushes into Q.vet; each stage drains at its
+      // own pace so slow research never blocks scanning. Stage logic untouched.
+      for (const t of candidates) Q.vet.push(t);
       candidates.slice(0, 14).forEach(t =>
         floorEmit('scan.token', { mint: t.address, symbol: t.symbol, name: t.name, mc: t.mc, flow: !!t.flowTag }));
-      setSeat('scan', { live: true, working: false, val: String(discovered), sub: `${candidates.length} enriched · just now` });
+      setSeat('scan', { live: true, working: false, val: String(discovered), sub: `${candidates.length} enriched · vet q${Q.vet.size}` });
 
-      setSeat('vet', { working: true, val: '…', sub: 'free + trade kill' });
       let kills = 0, scored = 0, entries = 0;
-      const survivors = [];
-      for (const t of candidates) {
+
+      // VET stage: free + trade kill (cheap, sync). Survivors → Q.rug.
+      setSeat('vet', { working: true, val: '…', sub: `free + trade kill · q${Q.vet.size}` });
+      for (const t of Q.vet.drain(30)) {
         const fk = freeKill(t, cfg);
         if (fk) {
           kills++;
+          logKill(t, 'free', fk);
           floorEmit('vet.kill', { mint: t.address, symbol: t.symbol, name: t.name, killPass: 'free', killReason: fk });
           emitSignal(processResult(p, { t, verdict: 'KILLED', killReason: fk, killPass: 'free' }, cfg, { silent: true }).signal);
           continue;
@@ -168,46 +175,40 @@ export default function App() {
         const tk = tradeKill(t, cfg);
         if (tk) {
           kills++;
+          logKill(t, 'trade', tk);
           floorEmit('vet.kill', { mint: t.address, symbol: t.symbol, name: t.name, killPass: 'trade', killReason: tk });
           emitSignal(processResult(p, { t, verdict: 'KILLED', killReason: tk, killPass: 'trade' }, cfg, { silent: true }).signal);
           continue;
         }
-        survivors.push(t);
+        Q.rug.push(t);
       }
 
-      // Rug-kill only the top of the queue (ranked by turnover) — ascending cost.
-      survivors.sort((a, b) => b.turnover - a.turnover);
-      const vetBatch = survivors.slice(0, 12);
-      setSeat('vet', { working: true, val: String(kills), sub: `killed · rug-checking top ${vetBatch.length}` });
-      const vetted = await mapPool(vetBatch, 3, t => vetToken(t, cfg));
-
-      // Elite confirmation: only for scorers where the boost could clear the bar.
-      const key = getKey();
-      let eliteSwaps = null;
-      const nearBar = vetted.some(v => v.verdict === 'SCORED' && v.score >= cfg.minTokenScore - cfg.eliteBoost);
-      if (key && nearBar) {
-        setSeat('score', { working: true, val: '…', sub: 'elite confirmation' });
-        eliteSwaps = await fetchEliteSwaps(key);
-        eliteSwapsRef.current = eliteSwaps;
-      }
-
-      // RESEARCH seat: post-kill-chain, pre-score. Fail-open, never kills —
-      // only nudges the score ±10. Runs on kill-chain survivors only.
-      const scoredList = [];
+      // RUG stage: top of Q.rug by turnover (ascending cost). vetToken runs
+      // the rug dossier pass; kills logged, survivors → Q.research.
+      const rugBatch = Q.rug.drain(12);
+      rugBatch.sort((a, b) => (b.turnover || 0) - (a.turnover || 0));
+      const rugNow = rugBatch.slice(0, 8);
+      Q.rug.unshiftFront(rugBatch.slice(8));
+      setSeat('vet', { working: true, val: String(kills), sub: `killed · rug-checking ${rugNow.length} · q${Q.rug.size}` });
+      const vetted = await mapPool(rugNow, 3, t => vetToken(t, cfg));
       for (let i = 0; i < vetted.length; i++) {
-        const v = vetted[i], t = vetBatch[i];
+        const v = vetted[i], t = rugNow[i];
         if (v.verdict === 'KILLED') {
           kills++;
+          logKill(t, v.killPass || 'rug', v.killReason);
           emitSignal(processResult(p, { t, ...v }, cfg, { silent: true }).signal);
           continue;
         }
-        scoredList.push({ t, v });
+        Q.research.push({ t, v });
       }
-      let researched = scoredList;
-      if (scoredList.length) {
-        setSeat('research', { working: true, val: '…', sub: `researching ${scoredList.length}` });
+
+      // RESEARCH stage: drains at its own pace — page reads are slow and must
+      // never block scanning. Fail-open, never kills — only nudges ±10.
+      const resBatch = Q.research.drain(5);
+      if (resBatch.length) {
+        setSeat('research', { working: true, val: '…', sub: `researching ${resBatch.length} · q${Q.research.size}` });
         warmCalloutCache(); // v3.4: fetch callout channel previews once per cycle
-        researched = await mapPool(scoredList, 3, async ({ t, v }) => {
+        const researched = await mapPool(resBatch, 3, async ({ t, v }) => {
           const research = await researchToken(t, v.dossier);
           // AI JUDGE seat: judgment numbers only, after keyword research.
           // No key → no-op. Never kills, never gates — just a modifier.
@@ -215,12 +216,25 @@ export default function App() {
           return { t, v, research, judge };
         });
         setSeat('research', { live: true, working: false, val: String(researched.length), sub: 'dossiers read · just now' });
+        for (const r of researched) Q.score.push(r);
       } else {
-        setSeat('research', { live: true, working: false, val: '0', sub: 'no survivors · idle' });
+        setSeat('research', { live: true, working: false, val: '0', sub: `idle · q${Q.research.size}` });
+      }
+
+      // SCORE/TRADE stage.
+      const scoreBatch = Q.score.drain(12);
+      // Elite confirmation: only for scorers where the boost could clear the bar.
+      const key = getKey();
+      let eliteSwaps = null;
+      const nearBar = scoreBatch.some(({ v }) => v.verdict === 'SCORED' && v.score >= cfg.minTokenScore - cfg.eliteBoost);
+      if (key && nearBar) {
+        setSeat('score', { working: true, val: '…', sub: 'elite confirmation' });
+        eliteSwaps = await fetchEliteSwaps(key);
+        eliteSwapsRef.current = eliteSwaps;
       }
 
       const scoredVals = [];
-      for (const { t, v, research, judge } of researched) {
+      for (const { t, v, research, judge } of scoreBatch) {
         scored++;
         // Combined research budget stays ±10 (keyword research + callouts + AI judge).
         const combinedMod = Math.max(-10, Math.min(10, (research.modifier || 0) + (judge.modifier || 0)));
@@ -239,9 +253,22 @@ export default function App() {
             judgeMod: judge.modifier || 0, judgeLine: judge.line,
           },
           cfg, { silent: true });
-        if (entered) entries++;
+        if (entered) {
+          entries++;
+          // v3.5 trade journal: snapshot the full decision context at entry.
+          logTradeEntry({
+            mint: t.address, symbol: t.symbol || '???', entryMc: signal.entryMc ?? t.mc ?? null,
+            score: v.score, breakdown: v.breakdown || null, feeds: t.feeds || null,
+            researchMod: combinedMod, researchLine: research.line || null,
+            creator: t.creator || null,
+          });
+          Q.trade.push({ mint: t.address, symbol: t.symbol || '???', ts: Date.now() });
+        }
         emitSignal(signal);
       }
+
+      // v3.5 — slow background pass: confirm a few open kills per cycle.
+      try { await confirmKills(); } catch { /* fail-open */ }
 
       const avg = scoredVals.length ? Math.round(scoredVals.reduce((a, b) => a + b, 0) / scoredVals.length) : null;
       setSeat('vet', { live: true, working: false, val: String(kills), sub: 'killed this cycle' });
@@ -287,6 +314,13 @@ export default function App() {
       }
       setPriceMap(pm);
       const closedNow = tick(p, pm, eliteSwapsRef.current, cfg);
+      // v3.5 trade journal: append outcomes to entries at exit.
+      for (const tr of closedNow) {
+        try {
+          logTradeExit(tr);
+          Q.risk.push({ mint: tr.mint, symbol: tr.symbol || '???', pnlPct: tr.multiple != null ? (tr.multiple - 1) * 100 : null, ts: Date.now() });
+        } catch { /* fail-open */ }
+      }
       snapshotEquity(p, pm);
       setSeat('risk', { live: true, val: String((p.positions || []).length), sub: `${closedNow.length} exits this tick · just now` });
       commitPortfolio();

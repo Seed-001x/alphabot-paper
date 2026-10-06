@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { subscribeFloor } from '../lib/floorBus.js';
 import { fmtUsd, fmtClock } from '../lib/paper.js';
 import Equity from './Equity.jsx';
+import { BrainReadout } from './BrainPanel.jsx';
 
 // ------------------------------------------------------------ session stats
 // One aggregator subscribing to floorBus. Everything downstream reads this.
@@ -589,6 +590,7 @@ export function TheFloor({ d, equityArr, bankroll0, positions, priceMap, stats, 
                     <DeskMonitor id="trade" d={d} equityArr={equityArr} positions={positions} priceMap={priceMap} />
                   </div>
                 </div>
+                <BrainReadout />
                 <div className="fdesk-stand" />
                 <div className="fdesk-top" />
                 <div className="fdesk-front" />
