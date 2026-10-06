@@ -8,11 +8,11 @@ export const DEFAULT_CONFIG = {
   minTokenScore: 65,      // entry: token score must clear this (after elite boost)
   minLiquidityUsd: 2000,  // DEX LP floor — GRADUATED coins only (on-curve skip; the curve IS their liquidity)
   minVol24hUsd: 5000,    // was 10000 — "with volume" for a young coin is lower
-  pumpMinMc: 5000,        // on-curve MC floor
+  pumpMinMc: 20000,       // on-curve MC floor — the $20k floor IS the newness filter (user's directive)
   pumpMaxMc: 1000000,     // user's spec: scan under $1M — hard ceiling
   minMc: 50000,           // graduated MC floor
   maxMc: 1000000,         // user's spec: scan under $1M — hard ceiling (was $30M)
-  minAgeMin: 2,           // was 5 — newborns are the trade
+  minAgeMin: 0,           // DISABLED (user's directive) — newborns vetted on merit, never killed for being young
   maxPumpAgeHrs: 48,      // on-curve max age (hours)
   maxAgeDays: 7,          // graduated max age (days)
   minBuys24h: 5,          // was 10 — young coins have fewer buys
@@ -60,7 +60,7 @@ export const RISK_META = {
   pumpMaxMc: { label: 'Pump max MC (on-curve)', unit: 'USD', min: 10000, max: 2000000, hint: 'Hard ceiling $1M — under-1m universe only.' },
   minMc: { label: 'Min market cap (graduated)', unit: 'USD', min: 0, max: 10000000, hint: 'Free-kill floor for graduated coins.' },
   maxMc: { label: 'Max market cap (graduated)', unit: 'USD', min: 100000, max: 2000000, hint: 'Hard ceiling $1M — under-1m universe only.' },
-  minAgeMin: { label: 'Min coin age', unit: 'minutes', min: 1, max: 600, hint: '2m — newborns are the trade.' },
+  minAgeMin: { label: 'Min coin age', unit: 'minutes', min: 0, max: 600, hint: '0 = disabled. Newborns are vetted on merit (MC/vol/holders), never killed for youth.' },
   maxPumpAgeHrs: { label: 'Max pump age (on-curve)', unit: 'hours', min: 1, max: 240, hint: 'Free-kill ceiling for bonding-curve coins.' },
   maxAgeDays: { label: 'Max age (graduated)', unit: 'days', min: 1, max: 90, hint: 'Free-kill ceiling for graduated coins.' },
   minBuys24h: { label: 'Min 24h buys', unit: 'count', min: 1, max: 1000, hint: '5 — young coins have fewer buys.' },

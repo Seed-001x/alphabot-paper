@@ -117,7 +117,11 @@ export async function scanTokens() {
 export function freeKill(t, cfg) {
   const ageMs = t.createdAt ? Date.now() - t.createdAt : null;
   if (ageMs == null) return 'age unknown';
-  if (ageMs < cfg.minAgeMin * 60000) return `age ${Math.max(1, Math.round(ageMs / 60000))}m < ${cfg.minAgeMin}m floor`;
+  // v3.9: NO age floor (user's directive) — a $20k coin in its first minute
+  // with volume is volatility/opportunity, not a rug signal. The $20k MC
+  // floor (pumpMinMc) IS the newness filter. Only kill for youth when
+  // minAgeMin > 0 (i.e. the operator explicitly re-enables it).
+  if (cfg.minAgeMin > 0 && ageMs < cfg.minAgeMin * 60000) return `age ${Math.max(1, Math.round(ageMs / 60000))}m < ${cfg.minAgeMin}m floor`;
   const maxAgeMs = t.graduated ? cfg.maxAgeDays * 864e5 : cfg.maxPumpAgeHrs * 3600000;
   if (ageMs > maxAgeMs) return t.graduated
     ? `age ${(ageMs / 864e5).toFixed(1)}d > ${cfg.maxAgeDays}d max`
