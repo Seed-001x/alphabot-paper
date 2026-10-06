@@ -180,6 +180,22 @@ export async function rugKill(t, cfg) {
 // ---------------------------------------------------------- SCORE
 // 0–100, transparent weights. Components with unknown inputs stay null and the
 // total renormalizes over the known ones. The breakdown ships with the signal.
+
+// Heat triage (v3.11 sniper playbook) — how "alive" a candidate is right now,
+// from data already in hand (no API calls). Drives research-queue order: hot
+// coins get the expensive research first, cold ones wait at the back. Cold
+// coins are never killed for being cold — they just wait.
+export function heatOf(t) {
+  let h = 0;
+  const turnover = (t.vol24h && t.mc) ? t.vol24h / t.mc : 0;
+  h += Math.min(turnover * 10, 30);
+  if (t.buys24h != null && t.sells24h != null && t.buys24h + t.sells24h > 0) {
+    h += (t.buys24h / (t.buys24h + t.sells24h)) * 30;
+  }
+  if (t.mc < 200000 && turnover >= 1) h += 20;   // low-MC high-turnover = hot
+  return h;
+}
+
 export function scoreToken(t, dossier, cfg) {
   const ageH = t.createdAt ? (Date.now() - t.createdAt) / 3600000 : null;
 

@@ -47,6 +47,12 @@ export class StageQueue {
     return out;
   }
   get size() { return this.q.length; }
+  // Heat triage (v3.11): reorder the queue so the hottest candidates drain
+  // first. Cold coins don't get killed — they just wait at the back, so the
+  // research budget is never wasted on dead momentum.
+  sortBy(fn) {
+    try { this.q.sort((a, b) => fn(b) - fn(a)); } catch { /* keep order */ }
+  }
   stats() { return { name: this.name, size: this.q.length, dropped: this.dropped, pushed: this.pushed }; }
 }
 

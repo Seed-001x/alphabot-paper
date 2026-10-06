@@ -227,3 +227,22 @@ export function momentumScore(t) {
   if (t.feeds && t.feeds.includes('trending')) return 55; // mild, data-light
   return null; // unknown -> renormalizes out
 }
+
+// Ignition detector (v3.11 sniper playbook) — the sniper's entry. Sudden
+// volume expansion on a low market cap = the moment before the pump. Uses
+// the one-cycle volume jump from the snapshot store (fast), not the slow
+// 24h aggregates. Graduation run = curve ≥75% + volume waking up ≥1.2x =
+// high-probability runner. Pure read, fail-open.
+export function ignitionSignal(mint, t) {
+  try {
+    const s = loadStore();
+    const e = s[mint];
+    if (!e || !e.prev || !e.last) return null;
+    if (!(e.prev.vol > 0)) return null;
+    const spike = (e.last.vol || 0) / e.prev.vol;
+    const gradRun = t && t.curvePct != null && t.curvePct >= 75 && spike >= 1.2;
+    const ignition = spike >= 1.5 && t && t.mc < 200000;
+    if (!ignition && !gradRun) return null;
+    return { ignition, gradRun, spike };
+  } catch { return null; }
+}

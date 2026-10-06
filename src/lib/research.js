@@ -23,7 +23,7 @@
 import { fetchTokens } from './dexscreener.js';
 import { calloutCheck } from './callouts.js';
 import { floorEmit } from './floorBus.js';
-import { accumulationSignal } from './feeds.js';
+import { accumulationSignal, ignitionSignal } from './feeds.js';
 
 const FETCH_MS = 8000;
 const TOTAL_MS = 20000;
@@ -652,6 +652,28 @@ async function researchInner(t, dossier) {
       });
     }
   } catch { /* fail-open: fewer than 4 snapshots → null, renormalizes out */ }
+
+  // (e1) IGNITION (v3.11 sniper playbook) — the sniper's entry, baked not
+  // learned. Sudden volume expansion on a low MC = the moment before the
+  // pump (+8). Graduation run = curve ≥75% + volume waking up (+6) =
+  // high-probability runner. Pure snapshot-store read, no fetch — always
+  // attempted. Clamped with the ±10 budget like everything else.
+  try {
+    const ig = ignitionSignal(t.address, t);
+    if (ig && ig.ignition) {
+      modifier += 8;
+      const label = `ignition +8 · vol ×${ig.spike.toFixed(1)} in one cycle, mc $${Math.round(t.mc / 1000)}k — before the pump`;
+      bits.push(label);
+      rlog(`  └ ignition → ${label}`, 'grn');
+      floorEmit('ignition.hit', { mint: t.address, symbol: t.symbol, name: t.name, spike: ig.spike });
+    } else if (ig && ig.gradRun) {
+      modifier += 6;
+      const label = `graduation run +6 · curve ${Math.round(t.curvePct)}% + vol ×${ig.spike.toFixed(1)} — high-probability runner`;
+      bits.push(label);
+      rlog(`  └ graduation run → ${label}`, 'grn');
+      floorEmit('ignition.hit', { mint: t.address, symbol: t.symbol, name: t.name, spike: ig.spike, gradRun: true });
+    }
+  } catch { /* fail-open */ }
 
   modifier = Math.max(-10, Math.min(10, modifier));
   bumpStats({ dossiers: stats.dossiers + 1 });

@@ -7,7 +7,7 @@ import { loadConfig, saveConfig } from './lib/config.js';
 import { getKey, STABLE_MINTS } from './lib/helius.js';
 import { fetchTokens, tokenView, solPrice, lastSolPrice } from './lib/dexscreener.js';
 import { isOnCurve, curveProgress } from './lib/pumpfun.js';
-import { scanTokens, freeKill, tradeKill, vetToken } from './lib/pipeline.js';
+import { scanTokens, freeKill, tradeKill, vetToken, heatOf } from './lib/pipeline.js';
 import { researchToken } from './lib/research.js';
 import { warmCalloutCache } from './lib/callouts.js';
 import { judgeToken } from './lib/aiJudge.js';
@@ -300,6 +300,9 @@ export default function App() {
       // RESEARCH stage: drains at its own pace — page reads are slow and must
       // never block scanning. Fail-open, never kills — only nudges ±10.
       // v3.10: 6/cycle (was 5) — wider net needs more research throughput.
+      // v3.11 heat triage: hottest first — the research budget goes to live
+      // coins, cold ones wait at the back (never killed for being cold).
+      try { Q.research.sortBy((w) => heatOf(w.t || w)); } catch { /* fifo */ }
       const resBatch = Q.research.drain(6);
       if (resBatch.length) {
         setSeat('research', { working: true, val: '…', sub: `researching ${resBatch.length} · q${Q.research.size}` });
