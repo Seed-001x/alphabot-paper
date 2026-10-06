@@ -2,7 +2,7 @@
 // Money is virtual (paper trading). Nothing here promises profit.
 
 export const DEFAULT_CONFIG = {
-  bankrollSol: 5,    // v3.8: SOL-denominated book — 5 SOL virtual
+  bankrollSol: 0.5,  // v3.13: 0.5 SOL book — realistic for 24/7 running
   bankroll0: 1000,   // USD fallback ONLY if bankrollSol is unset — applies on reset
   // --- SCAN / VET (kill chain, ascending cost) — pump.fun tuned ---
   // v3.10: WIDER NET (user: "quick trades teach the bot") — lower the bar,
@@ -28,17 +28,17 @@ export const DEFAULT_CONFIG = {
   // v3.6 SCALP RETUNE: faster trades → more closed trades → journal fills
   // quicker. TP +30%, SL −15%, trailing −12% arms +10%, 90-min max hold.
   maxPositions: 5,
-  // v3.12: sub-$100k universe. Score bands only — no small trades, min 1 SOL.
-  // 55–74 → 1.0 SOL · 75–84 → 1.5 SOL · 85+ → 2.0 SOL.
+  // v3.13: 0.5 SOL book. Score bands rescaled — no dust, every trade a real chunk.
+  // 55–74 → 0.10 SOL · 75–84 → 0.15 SOL · 85+ → 0.20 SOL.
   // (Whale rule retired — nothing over $100k can enter. Early-ape keys kept
   // for tuning but unused in sizing while the universe is sub-$100k.)
-  solSizeBase: 1.0,   // v3.9: NO small trades — min 1 SOL per entry
-  solSizeMid: 1.5,
-  solSizeTop: 2.0,
+  solSizeBase: 0.10,  // v3.13: rescaled for 0.5 SOL book — every trade a real chunk, no dust
+  solSizeMid: 0.15,
+  solSizeTop: 0.20,
   // v3.8 EARLY-APE: mc < earlyMcUsd && score ≥ earlyMinScore → earlySolSize SOL
   earlyMcUsd: 100000,
   earlyMinScore: 80,
-  earlySolSize: 1.5,
+  earlySolSize: 0.15,
   takeProfit: 0.30,
   stopLoss: 0.15,
   trailingStop: 0.12,
@@ -69,8 +69,8 @@ export const RISK_META = {
   maxTopHolderPct: { label: 'Max top-holder share', unit: '%', min: 5, max: 100, hint: 'Kill if the biggest holder owns more than this.' },
   maxTop10Pct: { label: 'Max top-10 share', unit: '%', min: 10, max: 100, hint: 'Kill if the top 10 own more than this.' },
   eliteBoost: { label: 'Smart-flow boost', unit: 'points', min: 0, max: 25, hint: 'Added to score on smart-flow confirmation.' },
-  maxPositions: { label: 'Max open positions', unit: 'count', min: 1, max: 25, hint: '5 — min 1 SOL/trade on a 5-SOL book.' },
-  solSizeBase: { label: 'Size · score 55–74', unit: 'SOL', min: 0.1, max: 5, hint: 'NO small trades — min 1 SOL per entry.' },
+  maxPositions: { label: 'Max open positions', unit: 'count', min: 1, max: 25, hint: '5 — 0.10 SOL/trade on a 0.5-SOL book.' },
+  solSizeBase: { label: 'Size · score 55–74', unit: 'SOL', min: 0.1, max: 5, hint: 'Base size — 20% of the 0.5 SOL book.' },
   solSizeMid: { label: 'Size · score 75–84', unit: 'SOL', min: 0.1, max: 5, hint: 'Mid-conviction entries.' },
   solSizeTop: { label: 'Size · score 85+', unit: 'SOL', min: 0.1, max: 5, hint: 'Highest-conviction entries.' },
   earlyMcUsd: { label: 'Early-ape MC ceiling', unit: 'USD', min: 10000, max: 1000000, hint: 'Kept for tuning — unused in sizing while the universe is sub-$100k.' },

@@ -24,7 +24,7 @@ export function freshPortfolio(bankrollUsd, bankrollSol) {
     signals: [],     // newest first, capped — KILLED + SCORED verdicts
     cooldowns: {},   // mint -> ts
     createdAt: Date.now(),
-    version: 7,      // v3.12: sub-$100k universe — fresh paper portfolio
+    version: 8,      // v3.13: 0.5 SOL book — fresh paper portfolio (learning keys untouched)
   };
 }
 // Resolve a SOL-denominated bankroll to USD at creation. spx = live price when
@@ -43,7 +43,7 @@ export function loadPortfolio(cfg, spx) {
     const raw = localStorage.getItem(PKEY);
     if (raw) {
       const p = JSON.parse(raw);
-      if (p && Array.isArray(p.positions) && p.version === 7) return p;
+      if (p && Array.isArray(p.positions) && p.version === 8) return p;
     }
   } catch {}
   return freshPortfolioFor(cfg, spx);
@@ -158,7 +158,7 @@ export function processResult(p, r, cfg, opts = {}) {
 
   // v3.7: SOL-denominated sizing scaled by conviction (score band).
   // v3.10: entry bar is 55 — 55–74 → solSizeBase · 75–84 → solSizeMid ·
-  // 85+ → solSizeTop. Min 1 SOL per entry, always. USD accounting
+  // 85+ → solSizeTop. Min 0.10 SOL per entry on the 0.5 SOL book, always. USD accounting
   // stays; SOL price comes from opts (fetched once per cycle, cached 2m).
   // v3.12: sub-$100k universe — score bands ONLY. Whale rule retired
   // (nothing over $100k can enter); early-ape unused in sizing.
