@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ALPHABOT — token desk</title>
+  <style>
+    /* instant paint shell — replaced by React on boot */
+    html, body { margin: 0; background: #060309; color: #f6eaf9; font-family: ui-monospace, Menlo, Consolas, monospace; }
+    #boot { max-width: 640px; margin: 0 auto; padding: 18px 16px 40px; }
+    #boot .b-banner { background: linear-gradient(90deg,#2a0a24,#3d0a33,#2a0a24); border-bottom: 1px solid #b3129e; color: #ffd7f4; text-align: center; font-size: 10px; letter-spacing: 2.5px; padding: 8px 12px; margin: -18px -16px 18px; text-transform: uppercase; }
+    #boot .b-head { display: flex; align-items: center; gap: 10px; padding: 6px 0 18px; }
+    #boot .b-title { font-weight: 800; font-size: 20px; letter-spacing: 4px; color: #fff; text-shadow: 0 0 8px #ff2bd6, 0 0 24px #ff2bd6; }
+    #boot .b-card { background: #0c0612; border: 1px solid #2b1233; border-radius: 8px; padding: 16px; margin-bottom: 10px; animation: bpl 1.8s infinite; }
+    #boot .b-ln { height: 12px; border-radius: 6px; background: #2b1233; }
+    @keyframes bpl { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div id="boot">
+      <div class="b-banner">PAPER TRADING — fake money, real signals.</div>
+      <div class="b-head"><div class="b-title">ALPHABOT</div></div>
+      <div class="b-card"><div class="b-ln" style="width:40%; margin-bottom:12px"></div><div class="b-ln" style="width:70%"></div></div>
+      <div class="b-card"><div class="b-ln" style="width:55%; margin-bottom:12px"></div><div class="b-ln" style="width:80%"></div></div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>
