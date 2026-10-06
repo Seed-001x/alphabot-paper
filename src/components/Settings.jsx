@@ -11,7 +11,7 @@ const ORDER = [
   'bankroll0', 'minTokenScore',
   'minLiquidityUsd', 'minVol24hUsd', 'minMc', 'maxMc', 'minAgeMin', 'maxAgeDays',
   'minBuys24h', 'maxTopHolderPct', 'maxTop10Pct', 'eliteBoost',
-  'maxPositions', 'positionPct', 'takeProfit', 'stopLoss', 'trailingStop', 'maxHoldHours', 'cooldownMin',
+  'maxPositions', 'solSizeBase', 'solSizeMid', 'solSizeTop', 'takeProfit', 'stopLoss', 'trailingStop', 'maxHoldHours', 'cooldownMin',
   'scanIntervalSec', 'priceIntervalSec',
 ];
 

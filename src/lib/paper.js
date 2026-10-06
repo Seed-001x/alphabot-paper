@@ -16,12 +16,12 @@ export function freshPortfolio(bankroll0) {
   return {
     bankroll0, cash: bankroll0,
     equity: [{ ts: Date.now(), v: bankroll0 }],
-    positions: [],   // open: {mint,symbol,name,entryMc,entryPrice,entryTs,sizeUsd,tokens,peakMultiple,score,eliteHit}
+    positions: [],   // open: {mint,symbol,name,entryMc,entryPrice,entryTs,sizeUsd,solSize,tokens,peakMultiple,score,eliteHit}
     closed: [],      // newest first
     signals: [],     // newest first, capped — KILLED + SCORED verdicts
     cooldowns: {},   // mint -> ts
     createdAt: Date.now(),
-    version: 2,
+    version: 3,      // v3.7: SOL-denominated sizing — fresh paper portfolio
   };
 }
 export function loadPortfolio(cfg) {
@@ -29,7 +29,7 @@ export function loadPortfolio(cfg) {
     const raw = localStorage.getItem(PKEY);
     if (raw) {
       const p = JSON.parse(raw);
-      if (p && Array.isArray(p.positions) && p.version === 2) return p;
+      if (p && Array.isArray(p.positions) && p.version === 3) return p;
     }
   } catch {}
   return freshPortfolio(cfg.bankroll0);
@@ -142,7 +142,13 @@ export function processResult(p, r, cfg, opts = {}) {
   if (cd && now - cd < cfg.cooldownMin * 60000)
     return gate(`cooldown — ${fmtDur(cfg.cooldownMin * 60000 - (now - cd))} left`);
 
-  const sizeUsd = Math.min(p.cash, p.cash * cfg.positionPct);
+  // v3.7: SOL-denominated sizing scaled by conviction (score band).
+  // 65–74 → solSizeBase · 75–84 → solSizeMid · 85+ → solSizeTop. USD accounting
+  // stays; SOL price comes from opts (fetched once per cycle, cached 2m).
+  const spx = (opts && opts.solPrice) || 150;
+  const solSize = finalScore >= 85 ? cfg.solSizeTop
+    : finalScore >= 75 ? cfg.solSizeMid : cfg.solSizeBase;
+  const sizeUsd = Math.min(p.cash, (solSize || 0.2) * spx);
   if (!(sizeUsd > 1)) return gate(`cash too low (${fmtUsd(p.cash)})`);
   if (!(t.price > 0)) return gate('no price');
 
@@ -153,7 +159,7 @@ export function processResult(p, r, cfg, opts = {}) {
   p.positions.push({
     mint: t.address, symbol: t.symbol, name: t.name,
     entryMc, entryPrice, entryTs: now,
-    sizeUsd, tokens, peakMultiple: 1,
+    sizeUsd, solSize: (solSize || 0.2), tokens, peakMultiple: 1,
     score: finalScore, eliteHit: !!r.eliteHit, flowTag: !!r.flowTag,
     // v3.6 adaptive exits: profile context for the exit policy.
     feeds: t.feeds || null,
@@ -161,10 +167,10 @@ export function processResult(p, r, cfg, opts = {}) {
     entryVol: t.vol24h || null,
   });
   sig.taken = true;
-  sig.reason = `ENTER ${t.symbol} · score ${finalScore}${researchMod ? ` (${researchMod >= 0 ? '+' : ''}${researchMod} research)` : ''}${r.eliteHit ? ` (+${boost} smart flow)` : ''} · ${fmtUsd(sizeUsd)} @ ${fmtUsd(entryMc)} MC`;
+  sig.reason = `ENTER ${t.symbol} · score ${finalScore}${researchMod ? ` (${researchMod >= 0 ? '+' : ''}${researchMod} research)` : ''}${r.eliteHit ? ` (+${boost} smart flow)` : ''} · ${(solSize || 0.2).toFixed(2)} SOL (${fmtUsd(sizeUsd)}) @ ${fmtUsd(entryMc)} MC`;
   floorEmit('trade.enter', {
     mint: t.address, symbol: t.symbol, name: t.name,
-    score: finalScore, sizeUsd, entryMc, researchMod,
+    score: finalScore, sizeUsd, solSize: (solSize || 0.2), entryMc, researchMod,
   });
   return done(sig, true);
 }

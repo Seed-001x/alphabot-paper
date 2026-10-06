@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { loadConfig, saveConfig } from './lib/config.js';
 import { getKey, STABLE_MINTS } from './lib/helius.js';
-import { fetchTokens, tokenView } from './lib/dexscreener.js';
+import { fetchTokens, tokenView, solPrice } from './lib/dexscreener.js';
 import { isOnCurve, curveProgress } from './lib/pumpfun.js';
 import { scanTokens, freeKill, tradeKill, vetToken } from './lib/pipeline.js';
 import { researchToken } from './lib/research.js';
@@ -224,6 +224,9 @@ export default function App() {
 
       // SCORE/TRADE stage.
       const scoreBatch = Q.score.drain(12);
+      // SOL price once per cycle for SOL-denominated position sizing (cached 2m).
+      let spx = null;
+      try { spx = await solPrice(); } catch { spx = null; }
       // Elite confirmation: only for scorers where the boost could clear the bar.
       const key = getKey();
       let eliteSwaps = null;
@@ -253,7 +256,7 @@ export default function App() {
             calloutLine: research.calloutLine || null,
             judgeMod: judge.modifier || 0, judgeLine: judge.line,
           },
-          cfg, { silent: true });
+          cfg, { silent: true, solPrice: spx });
         if (entered) {
           entries++;
           // v3.5 trade journal: snapshot the full decision context at entry.

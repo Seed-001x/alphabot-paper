@@ -2,7 +2,7 @@
 // Money is virtual (paper trading). Nothing here promises profit.
 
 export const DEFAULT_CONFIG = {
-  bankroll0: 1000,
+  bankroll0: 2500,   // v3.7: bigger virtual bankroll for SOL-denominated sizing
   // --- SCAN / VET (kill chain, ascending cost) — pump.fun tuned ---
   minTokenScore: 65,      // entry: token score must clear this (after elite boost)
   minLiquidityUsd: 3000,
@@ -25,7 +25,11 @@ export const DEFAULT_CONFIG = {
   // v3.6 SCALP RETUNE: faster trades → more closed trades → journal fills
   // quicker. TP +30%, SL −15%, trailing −12% arms +10%, 90-min max hold.
   maxPositions: 8,
-  positionPct: 0.02,
+  // v3.7: SOL-denominated position sizing, scaled by conviction (score band).
+  // 65–74 → 0.2 SOL · 75–84 → 0.35 SOL · 85+ → 0.5 SOL. Replaces positionPct.
+  solSizeBase: 0.2,
+  solSizeMid: 0.35,
+  solSizeTop: 0.5,
   takeProfit: 0.30,
   stopLoss: 0.15,
   trailingStop: 0.12,
@@ -57,7 +61,9 @@ export const RISK_META = {
   maxTop10Pct: { label: 'Max top-10 share', unit: '%', min: 10, max: 100, hint: 'Kill if the top 10 own more than this.' },
   eliteBoost: { label: 'Smart-flow boost', unit: 'points', min: 0, max: 25, hint: 'Added to score on smart-flow confirmation.' },
   maxPositions: { label: 'Max open positions', unit: 'count', min: 1, max: 25, hint: 'Concurrent position cap.' },
-  positionPct: { label: 'Position size', unit: '% of cash', min: 1, max: 5, pct: true, hint: 'Risk per trade, as % of cash.' },
+  solSizeBase: { label: 'Size · score 65–74', unit: 'SOL', min: 0.01, max: 5, hint: 'Position size for base-conviction entries.' },
+  solSizeMid: { label: 'Size · score 75–84', unit: 'SOL', min: 0.01, max: 5, hint: 'Position size for mid-conviction entries.' },
+  solSizeTop: { label: 'Size · score 85+', unit: 'SOL', min: 0.01, max: 5, hint: 'Position size for highest-conviction entries.' },
   takeProfit: { label: 'Take profit', unit: '% gain', min: 5, max: 500, pct: true, hint: 'Exit when multiple hits this gain.' },
   stopLoss: { label: 'Stop loss', unit: '% drop', min: 5, max: 90, pct: true, hint: 'Exit when multiple drops this much.' },
   trailingStop: { label: 'Trailing stop', unit: '% from peak', min: 5, max: 80, pct: true, hint: 'Exit on this pullback from peak multiple.' },
