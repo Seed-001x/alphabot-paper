@@ -12,9 +12,7 @@ import { researchToken } from './lib/research.js';
 import { judgeToken } from './lib/aiJudge.js';
 import { startFlowWatch } from './lib/flowWatch.js';
 import { floorEmit } from './lib/floorBus.js';
-import ResearchTerminal from './components/Research.jsx';
-import AgentFloor from './components/AgentFloor.jsx';
-import CrawlerWall from './components/CrawlerWall.jsx';
+import CommandCenter from './components/CommandCenter.jsx';
 import { ELITE } from './lib/elite.js';
 import { fetchWalletTxns, parseSwaps } from './lib/helius.js';
 import {
@@ -22,9 +20,8 @@ import {
   isPaused, setPaused, processResult, logSignal, tick, snapshotEquity,
   statsFor, fmtAgo,
 } from './lib/paper.js';
-import { Banner, Header, Seats } from './components/Chrome.jsx';
-import Equity from './components/Equity.jsx';
-import { SignalFeed, Positions, Trades } from './components/Feed.jsx';
+import { Banner } from './components/Chrome.jsx';
+import { Positions, Trades } from './components/Feed.jsx';
 import Settings from './components/Settings.jsx';
 
 const LOG_DEDUP_MS = 20 * 60 * 1000;
@@ -336,15 +333,15 @@ export default function App() {
   return (
     <>
       <Banner />
-      <Header
-        equity={stats.equity}
-        pnlPct={stats.totalPnlPct}
-        openCount={stats.openCount}
+      <CommandCenter
+        portfolio={portfolio}
+        priceMap={priceMap}
+        stats={stats}
+        now={now}
         paused={paused}
         onTogglePaused={togglePaused}
         onOpenSettings={() => setSettingsOpen(true)}
-        now={now}
-        eliteOn={!!keyState}
+        flowOn={!!keyState}
       />
       <main className="wrap">
         {paused && (
@@ -352,29 +349,6 @@ export default function App() {
             ❚❚ DESK PAUSED — scans and ticks halted
           </div>
         )}
-        <Seats seats={seats} />
-        <AgentFloor />
-        <ResearchTerminal />
-        <CrawlerWall />
-
-        <div className="panel">
-          <h2 className="panel-title">◈ Equity · virtual</h2>
-          <div className="eq-head">
-            <span className={'eq-big ' + (stats.totalPnl >= 0 ? 'v grn' : 'v red')}>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(stats.equity)}</span>
-            <span className={stats.totalPnl >= 0 ? 'pnl-pos' : 'pnl-neg'}>
-              {stats.totalPnl >= 0 ? '+' : ''}{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(stats.totalPnl)}
-              {' '}({stats.totalPnlPct == null ? '—' : (stats.totalPnlPct * 100).toFixed(1) + '%'})
-            </span>
-            <span style={{ color: 'var(--dim)', fontSize: 11 }}>cash {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(stats.cash)}</span>
-          </div>
-          <Equity points={portfolio.equity} bankroll0={portfolio.bankroll0} />
-          <div className="legend">
-            <span><span className="lg grn" />equity</span>
-            <span><span className="lg mag" />starting bankroll</span>
-          </div>
-        </div>
-
-        <SignalFeed signals={portfolio.signals} />
         <Positions positions={portfolio.positions} priceMap={priceMap} />
         <Trades closed={portfolio.closed} />
       </main>

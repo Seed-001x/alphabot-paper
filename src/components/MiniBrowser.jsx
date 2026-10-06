@@ -36,7 +36,7 @@ function shortMint(a) {
   return a && a.length > 8 ? `${a.slice(0, 4)}…${a.slice(-4)}` : (a || '?');
 }
 
-export default function MiniBrowser() {
+export default function MiniBrowser({ focusMint }) {
   const [reads, setReads] = useState([]);
   const [activeMint, setActiveMint] = useState(null);
   const [revealed, setRevealed] = useState(0);
@@ -45,23 +45,34 @@ export default function MiniBrowser() {
   const [judgments, setJudgments] = useState({});
   const contentRef = useRef(null);
   const spanRefs = useRef({});
+  // focusMint (v3.0): pin the viewer to one read (activity detail).
+  // New reads still accumulate in the list, but never steal focus.
+  const focusRef = useRef(focusMint);
+  focusRef.current = focusMint;
+
+  useEffect(() => {
+    if (focusMint) {
+      setActiveMint(focusMint);
+      setRevealed(0); setCursor(null); setCallout(null);
+    }
+  }, [focusMint]);
 
   useEffect(() => {
     const unsub = subscribeResearch((evt) => {
       if (evt.type === 'bread-start') {
         const rec = { mint: evt.mint, symbol: evt.symbol, url: evt.url, domain: evt.domain, status: 'loading', ts: Date.now() };
         setReads((prev) => [...prev.filter(r => r.mint !== evt.mint), rec].slice(-6));
-        setActiveMint(evt.mint);
+        if (!focusRef.current) setActiveMint(evt.mint);
         setRevealed(0); setCursor(null); setCallout(null);
       } else if (evt.type === 'bread-done') {
         const rec = { mint: evt.mint, symbol: evt.symbol, url: evt.url, domain: evt.domain, status: 'done', text: evt.text, hits: evt.hits || [], delta: evt.delta, verdict: evt.verdict, unverified: !!evt.unverified, hunt: !!evt.hunt, ts: Date.now() };
         setReads((prev) => [...prev.filter(r => r.mint !== evt.mint), rec].slice(-6));
-        setActiveMint(evt.mint);
+        if (!focusRef.current) setActiveMint(evt.mint);
         setRevealed(0); setCursor(null); setCallout(null);
       } else if (evt.type === 'bread-fail') {
         const rec = { mint: evt.mint, symbol: evt.symbol, url: evt.url, domain: evt.domain, status: 'failed', reason: evt.reason, ts: Date.now() };
         setReads((prev) => [...prev.filter(r => r.mint !== evt.mint), rec].slice(-6));
-        setActiveMint(evt.mint);
+        if (!focusRef.current) setActiveMint(evt.mint);
         setCursor(null); setCallout(null);
       }
     });
