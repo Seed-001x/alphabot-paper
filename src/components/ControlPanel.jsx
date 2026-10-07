@@ -34,7 +34,7 @@ function Row({ label, hint, children }) {
   );
 }
 
-export default function ControlPanel({ open, onClose, backendUrl, serverConfig, serverStats, serverBrain, onChanged }) {
+export default function ControlPanel({ open, onClose, backendUrl, serverConfig, serverStats, serverBrain, onChanged, onOpenLearn }) {
   const [busy, setBusy] = useState(null);
   const [msg, setMsg] = useState('');
   const [tuning, setTuning] = useState(null);
@@ -110,6 +110,12 @@ export default function ControlPanel({ open, onClose, backendUrl, serverConfig, 
         </div>
 
         {msg && <div className={'cp-msg' + (msg.startsWith('Failed') ? ' err' : '')}>{msg}</div>}
+
+        {onOpenLearn && (
+          <button className="cp-bigbtn" onClick={onOpenLearn} style={{ marginBottom: 12 }}>
+            📚 LEARNING ROOM — teach the bot
+          </button>
+        )}
 
         <Row label="BANKROLL" hint="paper · learning never wiped">
           <div className="cp-bank">

@@ -32,6 +32,7 @@ import { Banner } from './components/Chrome.jsx';
 import { Positions } from './components/Feed.jsx';
 import Settings from './components/Settings.jsx';
 import ControlPanel from './components/ControlPanel.jsx';
+import LearningRoom from './components/LearningRoom.jsx';
 
 const LOG_DEDUP_MS = 20 * 60 * 1000;
 
@@ -63,6 +64,7 @@ export default function App() {
   const [seats, setSeats] = useState({});
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [controlOpen, setControlOpen] = useState(false);
+  const [learnOpen, setLearnOpen] = useState(false);
   const [keyState, setKeyState] = useState(getKey());
   const [now, setNow] = useState(Date.now());
   // v3.8 BACKEND MODE: when the server desk is alive and fresh (< 3 min),
@@ -593,7 +595,14 @@ export default function App() {
         serverStats={isServer ? dispStats : null}
         serverBrain={isServer ? backend.data.brain : null}
         onChanged={checkBackend}
+        onOpenLearn={() => { setControlOpen(false); setLearnOpen(true); }}
       />
+      {learnOpen && (
+        <LearningRoom
+          base={backend.url}
+          onClose={() => setLearnOpen(false)}
+        />
+      )}
     </>
   );
 }
