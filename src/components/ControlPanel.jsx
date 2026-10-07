@@ -80,6 +80,8 @@ export default function ControlPanel({ open, onClose, backendUrl, serverConfig, 
     run('fund', () => postJson(`${base}/api/bankroll`, { sol: 1 }), 'Bankroll funded: 1 SOL. Past trades + learning preserved.');
   const doAggro = (on) =>
     run('aggro', () => postJson(`${base}/api/mode`, { on }), on ? 'Aggressive mode ON — disciplined aggro, rug shield up.' : 'Aggressive mode OFF.');
+  const doRug = (on) =>
+    run('rug', () => postJson(`${base}/api/rugshield`, { on }), on ? 'Rug shield ON — RugCheck kills active.' : 'Rug shield OFF — coins flow to scoring unfiltered.');
   const doMc = (v) =>
     run('mc' + v, async () => {
       const d = await postJson(`${base}/api/tuning`, { patch: { maxMc: v, pumpMaxMc: v } });
@@ -94,6 +96,7 @@ export default function ControlPanel({ open, onClose, backendUrl, serverConfig, 
   const curMc = (tuning && tuning.maxMc) || cfg.maxMc || 500000;
   const curScore = score != null ? score : cfg.minTokenScore != null ? cfg.minTokenScore : 25;
   const aggroOn = !!cfg.aggressiveMode;
+  const rugOn = cfg.rugShield !== false;
   const equity = stats.equity != null ? stats.equity : null;
   const trades = stats.totalTrades != null ? stats.totalTrades : brain.closed || 0;
   const wr = stats.winRate != null ? stats.winRate : brain.winRate;
@@ -127,6 +130,17 @@ export default function ControlPanel({ open, onClose, backendUrl, serverConfig, 
             {busy === 'aggro' ? '…' : aggroOn ? '🔥 AGGRESSIVE · ON' : 'AGGRESSIVE · OFF'}
           </button>
           <div className="cp-note">Wide net, 5-min cooldown, volume sizing. Rug shield stays on.</div>
+        </Row>
+
+        <Row label="RUG SHIELD" hint="RugCheck kill chain">
+          <button
+            className={'cp-bigbtn toggle' + (rugOn ? ' on' : '')}
+            disabled={busy === 'rug' || !base}
+            onClick={() => doRug(!rugOn)}
+          >
+            {busy === 'rug' ? '…' : rugOn ? '🛡️ SHIELD · ON' : 'SHIELD · OFF'}
+          </button>
+          <div className="cp-note">ON kills high dev/holder concentration. OFF lets everything through to scoring.</div>
         </Row>
 
         <Row label="UNIVERSE" hint="max market cap">
