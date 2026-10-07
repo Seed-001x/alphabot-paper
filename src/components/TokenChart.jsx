@@ -13,11 +13,30 @@ const fmtUsd = (n) => {
  * TokenChart — price chart with entry/exit markers.
  * Props: mint, symbol, entryMc, entryTs, exitMc (optional), exitTs (optional), onClose
  */
+const TIMEFRAMES = [
+  { id: '1m', label: '1m', tf: 'minute', agg: 1 },
+  { id: '5m', label: '5m', tf: 'minute', agg: 5 },
+  { id: '15m', label: '15m', tf: 'minute', agg: 15 },
+  { id: '30m', label: '30m', tf: 'minute', agg: 30 },
+  { id: '1h', label: '1H', tf: 'hour', agg: 1 },
+  { id: '4h', label: '4H', tf: 'hour', agg: 4 },
+  { id: '1d', label: '1D', tf: 'day', agg: 1 },
+];
+
 export default function TokenChart({ mint, symbol, entryMc, entryTs, exitMc, exitTs, onClose }) {
   const chartRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [timeframe, setTimeframe] = useState('minute');
+  const [timeframe, setTimeframe] = useState('1m');
+  const [copied, setCopied] = useState(false);
+
+  const copyCA = async () => {
+    try {
+      await navigator.clipboard.writeText(mint);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard unavailable */ }
+  };
 
   useEffect(() => {
     if (!chartRef.current || !mint) return;
@@ -35,9 +54,8 @@ export default function TokenChart({ mint, symbol, entryMc, entryTs, exitMc, exi
         const pairAddr = dsData?.[0]?.pairAddress;
         if (!pairAddr) throw new Error('pair not found');
 
-        const agg = timeframe === 'minute' ? 1 : timeframe === 'hour' ? 60 : 1440;
-        const tf = timeframe === 'day' ? 'day' : timeframe === 'hour' ? 'hour' : 'minute';
-        const url = `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pairAddr}/ohlcv/${tf}?aggregate=${agg === 1440 ? 1 : agg}&limit=1000`;
+        const tfCfg = TIMEFRAMES.find(t => t.id === timeframe) || TIMEFRAMES[0];
+        const url = `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pairAddr}/ohlcv/${tfCfg.tf}?aggregate=${tfCfg.agg}&limit=1000`;
         const res = await fetch(url);
         const data = await res.json();
         const ohlcv = data?.data?.attributes?.ohlcv_list || [];
@@ -154,17 +172,23 @@ export default function TokenChart({ mint, symbol, entryMc, entryTs, exitMc, exi
               </span>
             )}
           </div>
+          <button className="chart-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="chart-ca-row" onClick={copyCA} title="tap to copy">
+          <span className="chart-ca">{mint ? `${mint.slice(0, 6)}…${mint.slice(-6)}` : '—'}</span>
+          <span className="chart-copy">{copied ? '✓ copied' : '⧉ copy'}</span>
+        </div>
+        <div className="chart-toolbar">
           <div className="chart-tf">
-            {['minute', 'hour', 'day'].map(tf => (
+            {TIMEFRAMES.map(tf => (
               <button
-                key={tf}
-                className={timeframe === tf ? 'active' : ''}
-                onClick={() => setTimeframe(tf)}
+                key={tf.id}
+                className={timeframe === tf.id ? 'active' : ''}
+                onClick={() => setTimeframe(tf.id)}
               >
-                {tf[0].toUpperCase()}
+                {tf.label}
               </button>
             ))}
-            <button className="chart-close" onClick={onClose}>✕</button>
           </div>
         </div>
         <div className="chart-stats">
