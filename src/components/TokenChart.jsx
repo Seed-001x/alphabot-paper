@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, LineStyle } from 'lightweight-charts';
+import { createChart, ColorType, LineStyle, CandlestickSeries } from 'lightweight-charts';
 
 const fmtUsd = (n) => {
   if (n == null || isNaN(n)) return '—';
@@ -66,7 +66,7 @@ export default function TokenChart({ mint, symbol, entryMc, entryTs, exitMc, exi
           timeScale: { timeVisible: true, secondsVisible: false },
         });
 
-        const series = chart.addCandlestickSeries({
+        const series = chart.addSeries(CandlestickSeries, {
           upColor: '#2DD4BF',
           downColor: '#F6465D',
           wickUpColor: '#2DD4BF',
