@@ -199,6 +199,21 @@ export default function App() {
     } catch { /* fail-open */ }
   }, []);
 
+  // v3.22: live portfolio poll — refresh balance, equity, positions every 10s
+  // in server mode so the desk updates without manual refresh.
+  const pollPortfolio = useCallback(async () => {
+    const b = backendRef.current;
+    if (b.mode !== 'server' || !b.url) return;
+    try {
+      const s = await fetchState(b.url);
+      if (s && s.portfolio) {
+        setBackend(prev => prev.mode === 'server'
+          ? { ...prev, data: s, checkedAt: Date.now() }
+          : prev);
+      }
+    } catch { /* a dead poll is fine — next one soon */ }
+  }, []);
+
   function onBackendUrlSaved(u) {
     setBackendUrl(u);
     setBackendUrlState(getBackendUrl());
@@ -463,16 +478,19 @@ export default function App() {
     return () => clearInterval(t);
   }, [checkBackend, backendUrl]);
 
-  // v3.8: in server mode, stream the server's events into the floor (10s)
-  // and keep position prices fresh for display (30s). Read-only.
+  // v3.8: in server mode, stream the server's events into the floor (10s),
+  // keep position prices fresh for display (30s), and live-refresh the
+  // portfolio balance/equity/positions (10s). Read-only.
   useEffect(() => {
     if (backend.mode !== 'server') return undefined;
     pollBackendEvents();
     serverPriceTick();
+    pollPortfolio();
     const e = setInterval(pollBackendEvents, 10000);
     const p = setInterval(serverPriceTick, 30000);
-    return () => { clearInterval(e); clearInterval(p); };
-  }, [backend.mode, pollBackendEvents, serverPriceTick]);
+    const pf = setInterval(pollPortfolio, 10000);
+    return () => { clearInterval(e); clearInterval(p); clearInterval(pf); };
+  }, [backend.mode, pollBackendEvents, serverPriceTick, pollPortfolio]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
