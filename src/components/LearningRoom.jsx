@@ -34,32 +34,27 @@ export default function LearningRoom({ base, onClose }) {
   const analyzeWallet = async () => {
     if (!wallet.trim()) return;
     setBusy('analyze');
-    setMsg('Pulling trade history…');
+    setMsg('Auto-pulling trade history from chain… (this takes ~30s)');
     try {
-      // For now: user pastes trade JSON, or we trigger a browser pull.
-      // MVP: accept manually pasted trades.
-      let trades = [];
-      if (manualTrades.trim()) {
-        trades = JSON.parse(manualTrades);
-      } else {
-        setMsg('Paste trade JSON below, or the auto-pull is coming soon.');
-        setBusy(null);
-        return;
-      }
-      const d = await postJson(`${base}/api/learn/wallet`, {
+      const body = {
         wallet: wallet.trim(),
         label: label.trim() || wallet.slice(0, 8),
-        trades,
-      });
+      };
+      // Manual override if pasted
+      if (manualTrades.trim()) {
+        try { body.trades = JSON.parse(manualTrades); }
+        catch { setMsg('Invalid JSON in override box.'); setBusy(null); return; }
+      }
+      const d = await postJson(`${base}/api/learn/wallet`, body);
       if (d.ok) {
-        setMsg(`Analyzed ${d.profile.totalTrades} trades. Win rate ${d.profile.winRate}%.`);
-        setWallet(''); setLabel(''); setManualTrades('');
+        setMsg(`Analyzed ${d.trades} tokens. Win rate ${d.profile.winRate}%.`);
+        setWallet(''); setLabel('');
         load();
       } else {
         setMsg('Failed: ' + (d.error || 'unknown'));
       }
     } catch (e) {
-      setMsg('Failed: ' + (e.message || 'parse error — check JSON format'));
+      setMsg('Failed: ' + (e.message || 'network error'));
     } finally {
       setBusy(null);
     }
@@ -99,8 +94,8 @@ export default function LearningRoom({ base, onClose }) {
         {msg && <div className="cp-msg">{msg}</div>}
 
         <div className="cp-note" style={{ marginBottom: 12 }}>
-          Paper trading is paused. Give the bot homework: paste a wallet's trades,
-          it dissects the style. Add a few wallets, then synthesize a strategy.
+          Paper trading is paused. Paste a wallet address — the bot auto-pulls
+          its trade history and dissects the style. Add a few, then synthesize.
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
@@ -120,10 +115,10 @@ export default function LearningRoom({ base, onClose }) {
           />
         </div>
         <textarea
-          placeholder='Paste trades JSON: [{"symbol":"ZCAT","buys":[{"amount":51,"mcap":351000,"ts":123}],"sells":[...],"pnl":1275,"pnlPct":10.2}]'
+          placeholder="Optional: paste trades JSON to override auto-pull"
           value={manualTrades}
           onChange={(e) => setManualTrades(e.target.value)}
-          rows={4}
+          rows={2}
           style={{ width: '100%', marginBottom: 8 }}
           className="cp-input"
         />
