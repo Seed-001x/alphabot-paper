@@ -34,7 +34,7 @@ function todayPnl(equityArr, nowMs) {
 // ------------------------------------------------------------ header (tight)
 // v3.8: mode pill — ● SERVER (green) when rendering the backend's data,
 // ● LOCAL (amber) when the browser runs the pipeline itself. Tap for data age.
-function CommandHeader({ stats, equityArr, openCount, scanned, signalCount, now, paused, onTogglePaused, onOpenSettings, flowOn, backendMode, readOnly, aggressive, onToggleAggressive }) {
+function CommandHeader({ stats, equityArr, openCount, scanned, signalCount, now, paused, onTogglePaused, onOpenSettings, onOpenControl, flowOn, backendMode, readOnly, aggressive, onToggleAggressive }) {
   const today = todayPnl(equityArr, now);
   const tCls = !today ? '' : today.usd >= 0 ? 'grn' : 'red';
   const [modeOpen, setModeOpen] = useState(false);
@@ -78,6 +78,9 @@ function CommandHeader({ stats, equityArr, openCount, scanned, signalCount, now,
             >{aggressive ? '🔥 AGGRO' : 'AGGRO'}</button>
           )}
           <button className="cc-btn" onClick={onOpenSettings} title="Settings">⚙</button>
+          {onOpenControl && (
+            <button className="cc-btn" onClick={onOpenControl} title="Bot control panel — bankroll, mode, universe">🎛</button>
+          )}
         </div>
       </div>
     </header>
@@ -290,7 +293,7 @@ function LiveActivity({ signals, onStats, title }) {
 // v3.8 backend mode: portfolio/stats come from the server snapshot;
 // brainRemote/exitRulesRemote/feedRows seed the panels; the floor still
 // animates from translated floorBus events (see App).
-export default function CommandCenter({ portfolio, priceMap, stats, now, paused, onTogglePaused, onOpenSettings, flowOn, backendMode, readOnly, serverBrain, serverExitRules, feedRows, feedTs, aggressive, onToggleAggressive }) {
+export default function CommandCenter({ portfolio, priceMap, stats, now, paused, onTogglePaused, onOpenSettings, onOpenControl, flowOn, backendMode, readOnly, serverBrain, serverExitRules, feedRows, feedTs, aggressive, onToggleAggressive }) {
   const [counts, setCounts] = useState({ scanned: 0, signals: 0 });
   const d = useDeskStats();
   const signals = portfolio.signals || [];
@@ -307,6 +310,7 @@ export default function CommandCenter({ portfolio, priceMap, stats, now, paused,
         paused={paused}
         onTogglePaused={onTogglePaused}
         onOpenSettings={onOpenSettings}
+        onOpenControl={onOpenControl}
         flowOn={flowOn}
         backendMode={backendMode}
         readOnly={readOnly}

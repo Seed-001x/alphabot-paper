@@ -31,6 +31,7 @@ import {
 import { Banner } from './components/Chrome.jsx';
 import { Positions } from './components/Feed.jsx';
 import Settings from './components/Settings.jsx';
+import ControlPanel from './components/ControlPanel.jsx';
 
 const LOG_DEDUP_MS = 20 * 60 * 1000;
 
@@ -61,6 +62,7 @@ export default function App() {
   const [priceMap, setPriceMap] = useState({});
   const [seats, setSeats] = useState({});
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [controlOpen, setControlOpen] = useState(false);
   const [keyState, setKeyState] = useState(getKey());
   const [now, setNow] = useState(Date.now());
   // v3.8 BACKEND MODE: when the server desk is alive and fresh (< 3 min),
@@ -526,6 +528,7 @@ export default function App() {
         paused={effPaused}
         onTogglePaused={isServer ? () => {} : togglePaused}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenControl={isServer ? () => setControlOpen(true) : null}
         flowOn={isServer ? !!((backend.data.keys || {}).helius) : !!keyState}
         backendMode={backendModeInfo}
         readOnly={isServer}
@@ -581,6 +584,15 @@ export default function App() {
         backendUrl={backendUrl}
         onBackendUrl={onBackendUrlSaved}
         backendMode={backendModeInfo}
+      />
+      <ControlPanel
+        open={controlOpen}
+        onClose={() => setControlOpen(false)}
+        backendUrl={backend.url}
+        serverConfig={isServer ? backend.data.config : null}
+        serverStats={isServer ? dispStats : null}
+        serverBrain={isServer ? backend.data.brain : null}
+        onChanged={checkBackend}
       />
     </>
   );
