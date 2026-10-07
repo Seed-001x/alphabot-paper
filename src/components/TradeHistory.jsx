@@ -18,7 +18,7 @@ function exitTag(reason) {
   return { t: (reason || 'exit').slice(0, 14), c: 'dim' };
 }
 
-export default function TradeHistory({ closed }) {
+export default function TradeHistory({ closed, onChart }) {
   const list = (closed || []).slice().sort((a, b) => (b.exitTs || 0) - (a.exitTs || 0)).slice(0, 60);
   const wins = list.filter(c => (c.pnlUsd || 0) >= 0).length;
   return (
@@ -36,7 +36,16 @@ export default function TradeHistory({ closed }) {
           const pct = c.multiple != null && isFinite(c.multiple) ? (c.multiple - 1) * 100 : null;
           const tag = exitTag(c.exitReason);
           return (
-            <div className="th-row" key={`${c.mint || 'x'}-${c.exitTs || i}-${i}`}>
+            <div
+              className={'th-row' + (onChart ? ' clickable' : '')}
+              key={`${c.mint || 'x'}-${c.exitTs || i}-${i}`}
+              onClick={() => onChart && c.mint && onChart({
+                mint: c.mint, symbol: c.symbol,
+                entryMc: c.entryMc, entryTs: c.entryTs,
+                exitMc: c.exitMc, exitTs: c.exitTs,
+              })}
+              title={onChart ? 'click to see chart' : undefined}
+            >
               <div className="th-top">
                 <b className="th-sym">{c.symbol || '???'}</b>
                 {(c.eliteHit || c.flowTag) && <span className="th-flow" title="smart-flow confirmed">◈</span>}

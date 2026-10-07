@@ -2,8 +2,7 @@
 // SCAN (DexScreener discovery) → VET (kill chain, ascending cost) → SCORE (0–100)
 // → TRADE (paper entries) → RISK (rule exits). Fake money, real signals.
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { loadConfig, saveConfig } from './lib/config.js';
+import { useState, useEffect, useCallback, useRef } from 'react';import { loadConfig, saveConfig } from './lib/config.js';
 import { getKey, STABLE_MINTS } from './lib/helius.js';
 import { fetchTokens, tokenView, solPrice, lastSolPrice } from './lib/dexscreener.js';
 import { isOnCurve, curveProgress } from './lib/pumpfun.js';
@@ -33,6 +32,7 @@ import { Positions } from './components/Feed.jsx';
 import Settings from './components/Settings.jsx';
 import ControlPanel from './components/ControlPanel.jsx';
 import LearningRoom from './components/LearningRoom.jsx';
+import TokenChart from './components/TokenChart.jsx';
 
 const LOG_DEDUP_MS = 20 * 60 * 1000;
 
@@ -74,6 +74,7 @@ export default function App() {
   const [backend, setBackend] = useState({ mode: 'local', health: null, data: null, checkedAt: 0, url: getBackendUrl() });
   // v3.18: optimistic AGGRO toggle — flips instantly, server confirms on next poll.
   const [aggroLocal, setAggroLocal] = useState(null);
+  const [chartToken, setChartToken] = useState(null);
   const backendRef = useRef(backend);
   const seenEvRef = useRef(new Set()); // dedupe for translated server events
 
@@ -549,6 +550,7 @@ export default function App() {
         onTogglePaused={isServer ? () => {} : togglePaused}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenControl={isServer ? () => setControlOpen(true) : null}
+        onChart={setChartToken}
         flowOn={isServer ? !!((backend.data.keys || {}).helius) : !!keyState}
         backendMode={backendModeInfo}
         readOnly={isServer}
@@ -581,7 +583,7 @@ export default function App() {
             ◈ SERVER DESK — rendering the 24/7 pipeline · read-only · local mode takes over if it goes stale
           </div>
         )}
-        <Positions positions={dispPortfolio.positions} priceMap={priceMap} />
+        <Positions positions={dispPortfolio.positions} priceMap={priceMap} onChart={setChartToken} />
       </main>
 
       <footer className="foot">
@@ -619,6 +621,17 @@ export default function App() {
         <LearningRoom
           base={backend.url}
           onClose={() => setLearnOpen(false)}
+        />
+      )}
+      {chartToken && (
+        <TokenChart
+          mint={chartToken.mint}
+          symbol={chartToken.symbol}
+          entryMc={chartToken.entryMc}
+          entryTs={chartToken.entryTs}
+          exitMc={chartToken.exitMc}
+          exitTs={chartToken.exitTs}
+          onClose={() => setChartToken(null)}
         />
       )}
     </>

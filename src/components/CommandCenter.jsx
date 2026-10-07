@@ -293,7 +293,7 @@ function LiveActivity({ signals, onStats, title }) {
 // v3.8 backend mode: portfolio/stats come from the server snapshot;
 // brainRemote/exitRulesRemote/feedRows seed the panels; the floor still
 // animates from translated floorBus events (see App).
-export default function CommandCenter({ portfolio, priceMap, stats, now, paused, onTogglePaused, onOpenSettings, onOpenControl, flowOn, backendMode, readOnly, serverBrain, serverExitRules, feedRows, feedTs, aggressive, onToggleAggressive }) {
+export default function CommandCenter({ portfolio, priceMap, stats, now, paused, onTogglePaused, onOpenSettings, onOpenControl, flowOn, backendMode, readOnly, serverBrain, serverExitRules, feedRows, feedTs, aggressive, onToggleAggressive, onChart }) {
   const [counts, setCounts] = useState({ scanned: 0, signals: 0 });
   const d = useDeskStats();
   const signals = portfolio.signals || [];
@@ -338,7 +338,7 @@ export default function CommandCenter({ portfolio, priceMap, stats, now, paused,
         <BottomPanels d={d} equityArr={portfolio.equity} bankroll0={portfolio.bankroll0} />
         <FeedsPanel initialRows={feedRows} initialTs={feedTs} uptimeSec={backendMode ? backendMode.uptimeSec : null} />
         <BrainPanel remote={serverBrain && serverExitRules ? { brain: serverBrain, exitRules: serverExitRules } : null} />
-        <TradeHistory closed={portfolio.closed} />
+        <TradeHistory closed={portfolio.closed} onChart={onChart} />
       </main>
     </>
   );

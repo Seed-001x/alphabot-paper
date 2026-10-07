@@ -70,7 +70,7 @@ export function SignalFeed({ signals }) {
   );
 }
 
-export function Positions({ positions, priceMap }) {
+export function Positions({ positions, priceMap, onChart }) {
   const list = positions || [];
   return (
     <div className="panel">
@@ -83,7 +83,16 @@ export function Positions({ positions, priceMap }) {
           const up = mult >= 1;
           const cur = t && t.price ? p.tokens * t.price : p.sizeUsd;
           return (
-            <div key={p.mint} className="pos">
+            <div
+              key={p.mint}
+              className="pos clickable"
+              onClick={() => onChart && onChart({
+                mint: p.mint, symbol: p.symbol,
+                entryMc: p.entryMc, entryTs: p.entryTs,
+                exitMc: null, exitTs: null,
+              })}
+              title="click to see chart"
+            >
               <div className="top">
                 <span className="sym">{p.symbol}</span>
                 <span className={'mult' + (up ? ' up' : ' dn')}>{mult.toFixed(2)}x</span>
@@ -102,7 +111,7 @@ export function Positions({ positions, priceMap }) {
   );
 }
 
-export function Trades({ closed }) {
+export function Trades({ closed, onChart }) {
   const list = closed || [];
   return (
     <div className="panel">
@@ -116,7 +125,16 @@ export function Trades({ closed }) {
             </thead>
             <tbody>
               {list.slice(0, 60).map((c, i) => (
-                <tr key={c.mint + c.exitTs + i}>
+                <tr
+                  key={c.mint + c.exitTs + i}
+                  className={onChart ? 'clickable' : ''}
+                  onClick={() => onChart && onChart({
+                    mint: c.mint, symbol: c.symbol,
+                    entryMc: c.entryMc, entryTs: c.entryTs,
+                    exitMc: c.exitMc, exitTs: c.exitTs,
+                  })}
+                  title="click to see chart"
+                >
                   <td><b>{c.symbol}</b>{(c.eliteHit || c.flowTag) ? ' ◈' : ''}</td>
                   <td className={c.pnlUsd >= 0 ? 'pnl-pos' : 'pnl-neg'}>{fmtUsd(c.pnlUsd)}</td>
                   <td>{(c.multiple || 1).toFixed(2)}x</td>

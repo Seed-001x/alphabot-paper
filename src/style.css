@@ -1004,3 +1004,45 @@ body::before { display: none; }
 .cp-kv span { color: var(--dim); }
 .cp-kv b { font-family: var(--mono); color: var(--txt); font-weight: 600; }
 .cp-foot { padding: 16px; font-size: 10px; color: var(--faint); text-align: center; letter-spacing: 1px; }
+
+/* TokenChart modal — click a position/trade to see entry/exit on the chart */
+.chart-modal-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(4,6,10,.82); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.chart-modal {
+  width: 100%; max-width: 720px;
+  background: #0B0E13; border: 1px solid var(--line); border-radius: 14px;
+  padding: 16px; box-shadow: 0 24px 80px rgba(0,0,0,.6);
+}
+.chart-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.chart-symbol { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--txt); }
+.chart-mult { font-family: var(--mono); font-size: 14px; font-weight: 700; margin-left: 10px; padding: 2px 8px; border-radius: 6px; }
+.chart-mult.up { color: #2DD4BF; background: rgba(45,212,191,.12); }
+.chart-mult.dn { color: #F6465D; background: rgba(246,70,93,.12); }
+.chart-tf { display: flex; gap: 6px; align-items: center; }
+.chart-tf button {
+  background: transparent; border: 1px solid var(--line); color: var(--dim);
+  border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; font-family: var(--mono);
+}
+.chart-tf button.active { border-color: var(--cyn); color: var(--cyn); }
+.chart-close { margin-left: 8px; }
+.chart-stats { display: flex; gap: 16px; margin-bottom: 10px; font-size: 12px; color: var(--dim); }
+.chart-stats b { color: var(--txt); font-family: var(--mono); }
+.chart-container { width: 100%; height: 360px; border-radius: 8px; overflow: hidden; }
+.chart-loading, .chart-error { text-align: center; padding: 24px; color: var(--dim); font-size: 13px; }
+.chart-error { color: var(--red); }
+.chart-legend { display: flex; gap: 16px; margin-top: 10px; font-size: 12px; color: var(--dim); }
+.chart-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.chart-legend .dot.entry { background: #2DD4BF; }
+.chart-legend .dot.exit { background: #F6465D; }
+.pos.clickable, .ledger tr.clickable { cursor: pointer; }
+.pos.clickable:hover { border-color: var(--cyn); }
+.ledger tr.clickable:hover td { background: rgba(45,212,191,.06); }
+.th-row.clickable { cursor: pointer; }
+.th-row.clickable:hover { background: rgba(45,212,191,.05); }
