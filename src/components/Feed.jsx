@@ -72,6 +72,7 @@ export function SignalFeed({ signals }) {
 
 export function Positions({ positions, priceMap, onChart }) {
   const list = positions || [];
+  const now = Date.now();
   return (
     <div className="panel">
       <h2 className="panel-title">◈ Open positions · {list.length}</h2>
@@ -82,6 +83,8 @@ export function Positions({ positions, priceMap, onChart }) {
           const mult = t && t.mc ? t.mc / p.entryMc : 1;
           const up = mult >= 1;
           const cur = t && t.price ? p.tokens * t.price : p.sizeUsd;
+          const priceAge = t && t.ts ? Math.round((now - t.ts) / 1000) : null;
+          const isStale = priceAge == null || priceAge > 45;
           return (
             <div
               key={p.mint}
@@ -102,7 +105,13 @@ export function Positions({ positions, priceMap, onChart }) {
               <div className="row"><span>value now</span><b>{fmtUsd(cur)}</b></div>
               <div className="row"><span>unrealized</span><b className={cur - p.sizeUsd >= 0 ? 'pnl-pos' : 'pnl-neg'}>{fmtUsd(cur - p.sizeUsd)}</b></div>
               <div className="row"><span>score @ entry</span><b className="score-num">{p.score ?? '?'}{(p.eliteHit || p.flowTag) ? ' ◈' : ''}</b></div>
-              <div className="row"><span>held</span><b>{fmtDur(Date.now() - p.entryTs)}</b></div>
+              <div className="row"><span>held</span><b>{fmtDur(now - p.entryTs)}</b></div>
+              <div className="row price-freshness">
+                <span className={isStale ? 'stale-dot' : 'live-dot'}>{isStale ? '○' : '●'}</span>
+                <span className={isStale ? 'stale-txt' : 'live-txt'}>
+                  {priceAge == null ? 'waiting for price…' : isStale ? `price ${priceAge}s old` : `live · ${priceAge}s ago`}
+                </span>
+              </div>
             </div>
           );
         })}

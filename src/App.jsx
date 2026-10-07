@@ -192,9 +192,10 @@ export default function App() {
     try {
       const raw = await fetchTokens(mints);
       const pm = {};
+      const now = Date.now();
       for (const m of mints) {
         const v = tokenView(raw[m]);
-        if (v) pm[m] = v;
+        if (v) pm[m] = { ...v, ts: now };
       }
       setPriceMap(pm);
     } catch { /* fail-open */ }
@@ -434,9 +435,10 @@ export default function App() {
     try {
       const raw = await fetchTokens(arr);
       const pm = {};
+      const nowTs = Date.now();
       for (const m of arr) {
         const v = tokenView(raw[m]);
-        if (v) pm[m] = v;
+        if (v) pm[m] = { ...v, ts: nowTs };
       }
       setPriceMap(pm);
       const closedNow = tick(p, pm, eliteSwapsRef.current, cfg);
