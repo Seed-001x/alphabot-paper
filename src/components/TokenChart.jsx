@@ -48,11 +48,20 @@ export default function TokenChart({ mint, symbol, entryMc, entryTs, exitMc, exi
       setError(null);
       try {
         // GeckoTerminal OHLC — free, no key. Pool address = pair address on Solana.
-        // Try to find the pool via DexScreener first (gives us the pair address).
-        const dsRes = await fetch(`https://api.dexscreener.com/tokens/v1/solana/${mint}`);
-        const dsData = await dsRes.json();
-        const pairAddr = dsData?.[0]?.pairAddress;
-        if (!pairAddr) throw new Error('pair not found');
+        // Try DexScreener first (gives us the pair address).
+        let pairAddr = null;
+        try {
+          const dsRes = await fetch(`https://api.dexscreener.com/tokens/v1/solana/${mint}`);
+          const dsData = await dsRes.json();
+          pairAddr = dsData?.[0]?.pairAddress;
+        } catch { /* dexscreener miss — try geckoterminal */ }
+        // Fallback: GeckoTerminal token pools endpoint (works for dead coins too)
+        if (!pairAddr) {
+          const gtRes = await fetch(`https://api.geckoterminal.com/api/v2/networks/solana/tokens/${mint}/pools?page=1`);
+          const gtData = await gtRes.json();
+          pairAddr = gtData?.data?.[0]?.attributes?.address;
+        }
+        if (!pairAddr) throw new Error('chart unavailable — coin may be dead');
 
         const tfCfg = TIMEFRAMES.find(t => t.id === timeframe) || TIMEFRAMES[0];
         const url = `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pairAddr}/ohlcv/${tfCfg.tf}?aggregate=${tfCfg.agg}&limit=1000`;
