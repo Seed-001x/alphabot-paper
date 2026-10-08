@@ -578,7 +578,7 @@ export default function App() {
       )}
       {effView === 'real' && isServer ? (
         <main className="wrap">
-          <RealDesk book={realBook} priceMap={priceMap} onChart={setChartToken} />
+          <RealDesk book={realBook} priceMap={priceMap} onChart={setChartToken} apiBase={backend.url} />
         </main>
       ) : (
         <>

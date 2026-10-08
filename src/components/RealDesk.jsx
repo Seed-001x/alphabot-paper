@@ -1,5 +1,6 @@
 // REAL-money desk — the primary view when realMode is live.
 // Paper trading lives in the background; this is real funds.
+import { useState } from 'react';
 import { fmtUsd, fmtPct, fmtDur, fmtClock } from '../lib/paper.js';
 
 function fmtSol(n) {
@@ -81,9 +82,19 @@ function fmtMc(n) {
   return '$' + n.toFixed(0);
 }
 
-function RealPositions({ positions }) {
+function RealPositions({ positions, onSell }) {
   const list = positions || [];
   const now = Date.now();
+  const [selling, setSelling] = useState(null);
+  const handleSell = async (mint, symbol) => {
+    if (!confirm(`Sell ${symbol} now?`)) return;
+    setSelling(mint);
+    try {
+      await onSell(mint);
+    } finally {
+      setSelling(null);
+    }
+  };
   return (
     <div className="panel">
       <h2 className="panel-title"><span className="rp-dot" /> Open real positions · {list.length}</h2>
@@ -94,6 +105,7 @@ function RealPositions({ positions }) {
           const multCls = mult == null ? '' : mult >= 1 ? 'pnl-pos' : 'pnl-neg';
           const upl = p.unrealized;
           const entryTime = p.entryTs ? new Date(p.entryTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+          const isSelling = selling === p.mint;
           return (
             <div key={p.mint} className="pos">
               <div className="top">
@@ -113,6 +125,19 @@ function RealPositions({ positions }) {
               <div className="row"><span>held</span><b>{fmtDur(now - p.entryTs)}</b></div>
               <div className="row"><span>on-chain</span><b style={{ color: 'var(--grn)' }}>✓ filled</b></div>
               <div className="row live-row"><span className="live-dot" /><b className="live-text">live · updating</b></div>
+              <button
+                className="sell-btn"
+                disabled={isSelling}
+                onClick={() => handleSell(p.mint, p.symbol)}
+                style={{
+                  marginTop: '8px', width: '100%', padding: '10px',
+                  background: isSelling ? '#333' : '#e11d48', color: '#fff',
+                  border: 'none', borderRadius: '8px', fontWeight: 700,
+                  cursor: isSelling ? 'wait' : 'pointer', fontSize: '0.9em',
+                }}
+              >
+                {isSelling ? 'SELLING…' : 'SELL'}
+              </button>
             </div>
           );
         })}
@@ -164,7 +189,18 @@ function RealOff() {
   );
 }
 
-export default function RealDesk({ book, priceMap, onChart }) {
+export default function RealDesk({ book, priceMap, onChart, apiBase }) {
+  const handleSell = async (mint) => {
+    const base = apiBase || '';
+    const r = await fetch(`${base}/api/admin/sell-position`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mint }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'sell failed');
+    return j;
+  };
   if (!book || !book.ok) {
     return (
       <div className="panel" style={{ textAlign: 'center', padding: 32, color: 'var(--dim)' }}>
@@ -177,7 +213,7 @@ export default function RealDesk({ book, priceMap, onChart }) {
     <>
       <KillSwitchBanner tripped={!!book.killSwitched} />
       <RealHero book={book} />
-      <RealPositions positions={book.positions} />
+      <RealPositions positions={book.positions} onSell={handleSell} />
       <RealTrades closed={book.closed} />
       <div className="panel" style={{ color: 'var(--faint)', fontSize: 11, textAlign: 'center' }}>
         guardrails — max {book.guardrails?.maxPositions ?? 3} positions · per-trade cap {Math.round((book.guardrails?.maxSizePct ?? 0.3) * 100)}% · kill switch at −{Math.round((book.guardrails?.killSwitchDrawdown ?? 0.5) * 100)}%
