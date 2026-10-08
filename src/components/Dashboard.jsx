@@ -24,6 +24,7 @@ function PosRow({ p, onSell, selling }) {
   const now = Date.now();
   // Honest sparkline: entry MC → current MC (the only two points we know).
   const spark = p.entryMc != null && p.curMc != null ? [p.entryMc, p.curMc] : null;
+  const pricePending = p.curMc == null;
   return (
     <div className="pos-row">
       <div className="tok-ic">{(p.symbol || '?').slice(0, 1).toUpperCase()}</div>
@@ -34,11 +35,12 @@ function PosRow({ p, onSell, selling }) {
             {mult != null ? mult.toFixed(2) + 'x' : '—'}
           </span>
           {spark && <Sparkline data={spark} positive={up} />}
+          <span className="live-dot" title="live prices updating" />
         </div>
         <div className="pos-sub">{shortMint(p.mint)} · score {p.score ?? '?'} · held {fmtDur(now - (p.entryTs || now))}</div>
         <div className="pos-nums">
           <div className="pos-kv"><span className="k">entry MC</span><span className="v">{fmtMc(p.entryMc)}</span></div>
-          <div className="pos-kv"><span className="k">MC now</span><span className="v">{fmtMc(p.curMc)}</span></div>
+          <div className="pos-kv"><span className="k">MC now</span><span className="v">{pricePending ? <span style={{color:'#fbbf24'}}>syncing…</span> : fmtMc(p.curMc)}</span></div>
           <div className="pos-kv"><span className="k">size</span><span className="v">{fmtSol(p.solSize)}</span></div>
           <div className="pos-kv">
             <span className="k">unrealized</span>
@@ -55,7 +57,7 @@ function PosRow({ p, onSell, selling }) {
   );
 }
 
-function Positions({ positions, apiBase, onChanged }) {
+function Positions({ positions, apiBase, onChanged, updatedTs }) {
   const [sort, setSort] = useState('size');
   const [selling, setSelling] = useState(null);
 
@@ -66,6 +68,8 @@ function Positions({ positions, apiBase, onChanged }) {
     else arr.sort((a, b) => (b.solSize || 0) - (a.solSize || 0));
     return arr;
   }, [positions, sort]);
+
+  const ageSec = updatedTs ? Math.max(0, Math.round((Date.now() - updatedTs) / 1000)) : null;
 
   const handleSell = async (p) => {
     if (!window.confirm(`Sell ${p.symbol || 'position'} now at market?`)) return;
@@ -83,7 +87,9 @@ function Positions({ positions, apiBase, onChanged }) {
   return (
     <div className="card">
       <div className="card-head">
-        <span className="card-title">OPEN POSITIONS <span className="n">({list.length})</span></span>
+        <span className="card-title">OPEN POSITIONS <span className="n">({list.length})</span>
+          {ageSec != null && <span className="n" style={{color:'#34d399'}}> · live {ageSec}s ago</span>}
+        </span>
         <select className="sortsel" value={sort} onChange={e => setSort(e.target.value)}>
           <option value="size">Sort: Size</option>
           <option value="pnl">Sort: P&amp;L</option>
@@ -280,7 +286,7 @@ export default function Dashboard({ book, apiBase, onChanged }) {
       <KillBanner tripped={!!book.killSwitched} />
       <div className="dash-grid">
         <div className="col">
-          <Positions positions={book.positions} apiBase={apiBase} onChanged={onChanged} />
+          <Positions positions={book.positions} apiBase={apiBase} onChanged={onChanged} updatedTs={book.ts} />
           <TxFeed book={book} />
         </div>
         <div className="col">
