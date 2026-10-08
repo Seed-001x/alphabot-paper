@@ -297,6 +297,20 @@ input[type="range"].slider { flex: 1; accent-color: var(--acc); height: 26px; }
   .dash-grid, .rc-grid { grid-template-columns: 1fr; }
   .donut-row { grid-template-columns: 1fr; }
 }
+/* ---------- opportunities ---------- */
+.opp-row {
+  display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+.opp-row:hover { border-color: var(--border2); }
+.opp-row:last-child { margin-bottom: 0; }
+
 @media (max-width: 640px) {
   .page { padding: 12px 12px 50px; }
   .topnav { padding: 10px 12px; gap: 10px; flex-wrap: wrap; }
