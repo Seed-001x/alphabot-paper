@@ -74,7 +74,14 @@ function RealHero({ book }) {
   );
 }
 
-function RealPositions({ positions, priceMap, onChart }) {
+function fmtMc(n) {
+  if (n == null || !isFinite(n)) return '—';
+  if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+  return '$' + n.toFixed(0);
+}
+
+function RealPositions({ positions }) {
   const list = positions || [];
   const now = Date.now();
   return (
@@ -83,28 +90,29 @@ function RealPositions({ positions, priceMap, onChart }) {
       {list.length === 0 && <div className="empty">flat — real entries fire when paper signals</div>}
       <div className="pos-grid">
         {list.map(p => {
-          const t = priceMap[p.mint];
-          // approx current value from live price if available
-          const curUsd = t && t.price && p.quotedOut ? (p.quotedOut / 1e9) * t.price : null;
-          const upl = curUsd != null ? curUsd - p.sizeUsd : null;
+          const mult = p.multiple;
+          const multCls = mult == null ? '' : mult >= 1 ? 'pnl-pos' : 'pnl-neg';
+          const upl = p.unrealized;
+          const entryTime = p.entryTs ? new Date(p.entryTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
           return (
-            <div
-              key={p.mint}
-              className="pos clickable"
-              onClick={() => onChart && onChart({ mint: p.mint, symbol: p.symbol, entryTs: p.entryTs })}
-              title="click to see chart"
-            >
+            <div key={p.mint} className="pos">
               <div className="top">
                 <span className="sym">{p.symbol}</span>
-                <span className="badge enter">REAL</span>
+                <span className={multCls} style={{ fontSize: '1.4em', fontWeight: 700 }}>
+                  {mult != null ? mult.toFixed(2) + 'x' : '—'}
+                </span>
               </div>
+              <div className="row"><span>CA</span><b style={{ fontSize: '0.75em', wordBreak: 'break-all' }}>{p.mint ? p.mint.slice(0, 8) + '...' + p.mint.slice(-6) : '—'}</b></div>
+              <div className="row"><span>entry MC</span><b>{fmtMc(p.entryMc)}</b></div>
+              <div className="row"><span>MC now</span><b>{fmtMc(p.curMc)}</b></div>
               <div className="row"><span>size</span><b>{fmtSol(p.solSize)} · {fmtUsd(p.sizeUsd)}</b></div>
-              {upl != null && (
-                <div className="row"><span>unrealized</span><b className={upl >= 0 ? 'pnl-pos' : 'pnl-neg'}>{fmtUsd(upl)}</b></div>
-              )}
+              <div className="row"><span>value now</span><b>{p.valueNow != null ? fmtUsd(p.valueNow) : '—'}</b></div>
+              <div className="row"><span>unrealized</span><b className={upl >= 0 ? 'pnl-pos' : 'pnl-neg'}>{upl != null ? fmtUsd(upl) : '—'}</b></div>
               <div className="row"><span>score @ entry</span><b className="score-num">{p.score ?? '?'}</b></div>
+              <div className="row"><span>entered</span><b>{entryTime}</b></div>
               <div className="row"><span>held</span><b>{fmtDur(now - p.entryTs)}</b></div>
               <div className="row"><span>on-chain</span><b style={{ color: 'var(--grn)' }}>✓ filled</b></div>
+              <div className="row live-row"><span className="live-dot" /><b className="live-text">live · updating</b></div>
             </div>
           );
         })}
@@ -113,7 +121,7 @@ function RealPositions({ positions, priceMap, onChart }) {
   );
 }
 
-function RealTrades({ closed, onChart }) {
+function RealTrades({ closed }) {
   const list = closed || [];
   return (
     <div className="panel">
@@ -127,11 +135,7 @@ function RealTrades({ closed, onChart }) {
             </thead>
             <tbody>
               {list.slice(0, 60).map((c, i) => (
-                <tr
-                  key={(c.exitTxSig || c.mint) + i}
-                  className={onChart ? 'clickable' : ''}
-                  onClick={() => onChart && onChart({ mint: c.mint, symbol: c.symbol, entryTs: c.entryTs, exitTs: c.exitTs })}
-                  title="click to see chart"
+                <tr key={(c.exitTxSig || c.mint) + i}>
                 >
                   <td><b>{c.symbol}</b> <span className="badge enter" style={{ fontSize: 9 }}>REAL</span></td>
                   <td className={c.pnlUsd >= 0 ? 'pnl-pos' : 'pnl-neg'}>{fmtUsd(c.pnlUsd)}</td>
@@ -174,8 +178,8 @@ export default function RealDesk({ book, priceMap, onChart }) {
     <>
       <KillSwitchBanner tripped={!!book.killSwitched} />
       <RealHero book={book} />
-      <RealPositions positions={book.positions} priceMap={priceMap} onChart={onChart} />
-      <RealTrades closed={book.closed} onChart={onChart} />
+      <RealPositions positions={book.positions} />
+      <RealTrades closed={book.closed} />
       <div className="panel" style={{ color: 'var(--faint)', fontSize: 11, textAlign: 'center' }}>
         guardrails — max {book.guardrails?.maxPositions ?? 3} positions · per-trade cap {Math.round((book.guardrails?.maxSizePct ?? 0.3) * 100)}% · kill switch at −{Math.round((book.guardrails?.killSwitchDrawdown ?? 0.5) * 100)}%
       </div>
