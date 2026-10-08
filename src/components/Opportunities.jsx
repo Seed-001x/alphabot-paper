@@ -1,8 +1,7 @@
-// OPPORTUNITIES — live pump.fun movers feed, trading-terminal style.
-// Card-based layout like pump.fun/Photon movers: coin visual, symbol/name,
-// MC front and center, age, graduated badge. Tap a card → pump.fun.
+// OPPORTUNITIES — live pump.fun movers feed, matching pump.fun's row layout.
+// Compact rows: thumbnail | symbol+age / ticker+socials / holder stats || MC (green) right.
 // Polls /api/movers every 30s. Client-side filters: min MC (default $100K),
-// min age (default 5h), sort by recency (default) or MC.
+// min age (default 5h), sort by movers (default) or MC.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getBackendUrl, fmtMc } from '../lib/api.js';
 
@@ -42,9 +41,10 @@ function fmtAge(ts) {
   if (m < 1) return 'now';
   if (m < 60) return m + 'm';
   const h = Math.floor(m / 60);
-  if (h < 24) return h + 'h ' + (m % 60) + 'm';
+  if (h < 24) return h + 'h';
   const d = Math.floor(h / 24);
-  return d + 'd ' + (h % 24) + 'h';
+  if (d < 30) return d + 'd';
+  return Math.floor(d / 30) + 'mo';
 }
 
 const MC_PRESETS = [
@@ -101,9 +101,8 @@ export default function Opportunities() {
       return true;
     });
     if (sortBy === 'mc') {
-      out.sort((a, b) => (b.usdMc ?? 0) - (a.usdMc ?? 0));
+      out.sort((a, b) => (b.usdMc ?? b.usd_market_cap ?? 0) - (a.usdMc ?? a.usd_market_cap ?? 0));
     } else {
-      // movers order (recency of trade); fall back to newest created
       out.sort((a, b) => (b.lastTradeTs ?? b.createdAt ?? 0) - (a.lastTradeTs ?? a.createdAt ?? 0));
     }
     return out;
@@ -111,9 +110,9 @@ export default function Opportunities() {
 
   return (
     <div className="col">
-      <div className="card">
+      <div className="card pf-movers">
         <div className="card-head">
-          <div className="card-title">OPPORTUNITIES <span className="n">· {visible.length}{visible.length !== coins.length ? `/${coins.length}` : ''}</span></div>
+          <div className="card-title">MOVERS <span className="n">· {visible.length}{visible.length !== coins.length ? `/${coins.length}` : ''}</span></div>
           <div className="tx-time">{updatedAt ? 'updated ' + fmtAge(updatedAt) + ' ago' : ''}</div>
         </div>
 
@@ -163,34 +162,46 @@ export default function Opportunities() {
         )}
 
         {visible.length > 0 && (
-          <div className="opp-grid">
+          <div className="pf-rows">
             {visible.map(c => {
               const mc = c.usdMc ?? c.usd_market_cap ?? null;
               const addr = c.address || c.mint || '';
               const sym = c.symbol || '???';
-              const name = c.name || '';
+              const ticker = String(sym).toUpperCase().slice(0, 12);
               const id = identicon(addr, sym);
+              const age = c.createdAt ? fmtAge(c.createdAt) : '—';
               return (
                 <a
                   key={addr || sym}
                   href={addr ? `https://pump.fun/coin/${addr}` : undefined}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="opp-card"
+                  className="pf-row"
                   style={{ textDecoration: 'none', color: 'inherit' }}
                 >
-                  <div className="opp-card-top">
-                    <div className="opp-coin" style={{ background: id.bg }}>{id.letter}</div>
-                    <div className="opp-id">
-                      <div className="opp-sym">{sym}</div>
-                      {name && name !== sym && <div className="opp-name">{name}</div>}
-                    </div>
-                    {c.graduated && <div className="opp-badge grad">GRAD</div>}
+                  {/* thumbnail */}
+                  <div className="pf-thumb" style={{ background: id.bg }}>
+                    <span>{id.letter}</span>
                   </div>
-                  <div className="opp-mc">{fmtMc(mc)}</div>
-                  <div className="opp-meta">
-                    <span className="opp-age">{c.createdAt ? fmtAge(c.createdAt) + ' old' : '—'}</span>
-                    <span className="opp-open">pump.fun ↗</span>
+                  {/* middle: 3 lines like pump.fun */}
+                  <div className="pf-mid">
+                    <div className="pf-line1">
+                      <span className="pf-sym">{sym}</span>
+                      <span className="pf-age">◷ {age}</span>
+                      {c.graduated && <span className="pf-grad">GRAD</span>}
+                    </div>
+                    <div className="pf-line2">
+                      <span className="pf-ticker">{ticker}</span>
+                      {c.twitter && <span className="pf-soc" title="twitter">𝕏</span>}
+                      {c.website && <span className="pf-soc" title="website">🌐</span>}
+                    </div>
+                    <div className="pf-line3">
+                      <span className="pf-stat-dim">MC {fmtMc(mc)}</span>
+                    </div>
+                  </div>
+                  {/* right: MC big green */}
+                  <div className="pf-right">
+                    <div className="pf-mc">{fmtMc(mc)}</div>
                   </div>
                 </a>
               );
@@ -203,7 +214,7 @@ export default function Opportunities() {
         )}
       </div>
       <div className="rc-note">
-        Live movers from pump.fun — the same feed the bot scans. Tap a card to open it on pump.fun.
+        Live movers from pump.fun — the same feed the bot scans. Tap a row to open it on pump.fun.
       </div>
     </div>
   );
