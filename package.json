@@ -1,1 +1,0 @@
-{"dependencies":{"lightweight-charts":"^5.2.1","react":"^18.3.1","react-dom":"^18.3.1"},"devDependencies":{"@vitejs/plugin-react":"^4.3.3","vite":"^5.4.8"},"name":"alphabot","private":true,"scripts":{"build":"vite build","dev":"vite"},"type":"module","version":"0.1.0"}
