@@ -412,3 +412,27 @@ input[type="range"].slider { flex: 1; accent-color: var(--acc); height: 26px; }
 .pf-stat-dim { font-size: 12px; color: var(--faint); }
 .pf-right { flex-shrink: 0; text-align: right; }
 .pf-mc { font-size: 16px; font-weight: 800; color: var(--grn); letter-spacing: .2px; white-space: nowrap; }
+/* --- pump.fun movers replica (full enriched rows) --- */
+.pf-thumb {
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+}
+.pf-name {
+  font-weight: 700; font-size: 14px; color: #f5f5f5;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.pf-holders { font-size: 12px; color: #a1a1aa; white-space: nowrap; }
+.pf-right {
+  display: flex; flex-direction: column; gap: 3px; align-items: flex-end; justify-content: center;
+}
+.pf-vmc { font-size: 12px; white-space: nowrap; }
+.pf-v { color: #71717a; font-weight: 600; margin-right: 6px; }
+.pf-vmc .pf-mc { font-size: 14px; color: #22d3ee; font-weight: 800; }
+.pf-price { font-size: 13px; color: #e4e4e7; font-weight: 700; white-space: nowrap; }
+.pf-tx { font-size: 11px; color: #71717a; white-space: nowrap; }
+.pf-row { text-decoration: none; color: inherit; }
+.pf-row:active { background: rgba(255,255,255,0.06); }
+@media (max-width: 420px) {
+  .pf-thumb { width: 44px; height: 44px; }
+  .pf-name { font-size: 13px; }
+  .pf-vmc .pf-mc { font-size: 13px; }
+}

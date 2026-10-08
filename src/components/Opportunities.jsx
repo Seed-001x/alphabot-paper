@@ -1,13 +1,13 @@
-// OPPORTUNITIES — live pump.fun movers feed, matching pump.fun's row layout.
-// Compact rows: thumbnail | symbol+age / ticker+socials / holder stats || MC (green) right.
-// Polls /api/movers every 30s. Client-side filters: min MC (default $100K),
-// min age (default 5h), sort by movers (default) or MC.
+// OPPORTUNITIES — pump.fun movers replica with full enriched data.
+// Row layout mirrors pump.fun's movers tab frame-by-frame:
+// [thumb] Name ✓ | V $vol  MC $mc(cyan) / TICKER 🌱 age 👥𝕏🌐 | price / 👤 holders | TX n
+// Polls /api/movers every 30s. Filters: min MC ($100K default), min age (5h default).
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getBackendUrl, fmtMc } from '../lib/api.js';
+import { getBackendUrl } from '../lib/api.js';
 
 async function fetchMovers(base) {
   const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), 15000);
+  const t = setTimeout(() => ctl.abort(), 20000);
   try {
     const r = await fetch(`${base}/api/movers`, { signal: ctl.signal });
     if (!r.ok) throw new Error('http ' + r.status);
@@ -19,7 +19,7 @@ async function fetchMovers(base) {
   }
 }
 
-// deterministic identicon: gradient from address hash + first letter
+// deterministic identicon fallback when the API has no image
 const PALETTES = [
   ['#8B7CF6', '#5b4fd6'], ['#2DD4BF', '#0e7c6f'], ['#f472b6', '#b83280'],
   ['#fbbf24', '#b45309'], ['#60a5fa', '#1d4ed8'], ['#34d399', '#047857'],
@@ -45,6 +45,30 @@ function fmtAge(ts) {
   const d = Math.floor(h / 24);
   if (d < 30) return d + 'd';
   return Math.floor(d / 30) + 'mo';
+}
+
+// compact money: 159200 -> $159.2K, 5000000 -> $5M
+function fmtUsd(v) {
+  if (v == null || !(v >= 0)) return '—';
+  if (v >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(v >= 1e8 ? 0 : 1) + 'M';
+  if (v >= 1e3) return '$' + (v / 1e3).toFixed(v >= 1e5 ? 0 : 1) + 'K';
+  return '$' + v.toFixed(v < 10 ? 2 : 0);
+}
+
+// compact count: 75000 -> 75K, 4200 -> 4.2K
+function fmtCount(v) {
+  if (v == null || !(v >= 0)) return '—';
+  if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return (v / 1e3).toFixed(v >= 1e5 ? 0 : 1) + 'K';
+  return String(Math.round(v));
+}
+
+function fmtPrice(v) {
+  if (v == null || !(v > 0)) return '—';
+  if (v >= 1) return '$' + v.toFixed(2);
+  if (v >= 0.01) return '$' + v.toFixed(4);
+  return '$' + v.toFixed(6);
 }
 
 const MC_PRESETS = [
@@ -95,16 +119,15 @@ export default function Opportunities() {
     const now = Date.now();
     const minAgeMs = minAgeH * 3600e3;
     const out = coins.filter(c => {
-      const mc = c.usdMc ?? c.usd_market_cap ?? 0;
+      const mc = c.usdMc ?? 0;
       if (!(mc >= minMc)) return false;
       if (c.createdAt && now - c.createdAt < minAgeMs) return false;
       return true;
     });
     if (sortBy === 'mc') {
-      out.sort((a, b) => (b.usdMc ?? b.usd_market_cap ?? 0) - (a.usdMc ?? a.usd_market_cap ?? 0));
-    } else {
-      out.sort((a, b) => (b.lastTradeTs ?? b.createdAt ?? 0) - (a.lastTradeTs ?? a.createdAt ?? 0));
+      out.sort((a, b) => (b.usdMc ?? 0) - (a.usdMc ?? 0));
     }
+    // 'recent' keeps feed order (already sorted by last trade)
     return out;
   }, [coins, minMc, minAgeH, sortBy]);
 
@@ -116,7 +139,6 @@ export default function Opportunities() {
           <div className="tx-time">{updatedAt ? 'updated ' + fmtAge(updatedAt) + ' ago' : ''}</div>
         </div>
 
-        {/* filter bar */}
         <div className="opp-filters">
           <div className="opp-frow">
             <span className="opp-flabel">MC ≥</span>
@@ -148,28 +170,27 @@ export default function Opportunities() {
         </div>
 
         {loading && <div className="empty">loading movers…</div>}
-
-        {!loading && err && coins.length === 0 && (
-          <div className="empty">{err}</div>
-        )}
-
+        {!loading && err && coins.length === 0 && <div className="empty">{err}</div>}
         {!loading && !err && visible.length === 0 && (
           <div className="empty">
-            {coins.length > 0
-              ? 'no coins pass the filters — loosen MC or age'
-              : 'no movers right now — check back soon'}
+            {coins.length > 0 ? 'no coins pass the filters — loosen MC or age' : 'no movers right now — check back soon'}
           </div>
         )}
 
         {visible.length > 0 && (
           <div className="pf-rows">
             {visible.map(c => {
-              const mc = c.usdMc ?? c.usd_market_cap ?? null;
-              const addr = c.address || c.mint || '';
+              const addr = c.address || '';
               const sym = c.symbol || '???';
-              const ticker = String(sym).toUpperCase().slice(0, 12);
-              const id = identicon(addr, sym);
+              const name = c.name || sym;
+              const mc = c.usdMc ?? null;
+              const vol = c.vol24h ?? null;
+              const holders = c.holders ?? null;
+              const txns = c.txns24h ?? null;
+              const price = c.priceUsd ?? null;
               const age = c.createdAt ? fmtAge(c.createdAt) : '—';
+              const img = c.image || null;
+              const id = img ? null : identicon(addr, sym);
               return (
                 <a
                   key={addr || sym}
@@ -177,31 +198,29 @@ export default function Opportunities() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="pf-row"
-                  style={{ textDecoration: 'none', color: 'inherit' }}
                 >
-                  {/* thumbnail */}
-                  <div className="pf-thumb" style={{ background: id.bg }}>
-                    <span>{id.letter}</span>
+                  <div className="pf-thumb" style={img ? { backgroundImage: `url(${img})` } : { background: id.bg }}>
+                    {!img && <span>{id.letter}</span>}
                   </div>
-                  {/* middle: 3 lines like pump.fun */}
                   <div className="pf-mid">
                     <div className="pf-line1">
-                      <span className="pf-sym">{sym}</span>
-                      <span className="pf-age">◷ {age}</span>
+                      <span className="pf-name">{name}</span>
                       {c.graduated && <span className="pf-grad">GRAD</span>}
                     </div>
                     <div className="pf-line2">
-                      <span className="pf-ticker">{ticker}</span>
-                      {c.twitter && <span className="pf-soc" title="twitter">𝕏</span>}
-                      {c.website && <span className="pf-soc" title="website">🌐</span>}
+                      <span className="pf-ticker">{String(sym).toUpperCase().slice(0, 14)}</span>
+                      <span className="pf-age">🌱 {age}</span>
+                      {c.twitter && <span className="pf-soc">𝕏</span>}
+                      {c.website && <span className="pf-soc">🌐</span>}
                     </div>
                     <div className="pf-line3">
-                      <span className="pf-stat-dim">MC {fmtMc(mc)}</span>
+                      <span className="pf-holders">👤 {holders != null ? fmtCount(holders) : '—'}</span>
                     </div>
                   </div>
-                  {/* right: MC big green */}
                   <div className="pf-right">
-                    <div className="pf-mc">{fmtMc(mc)}</div>
+                    <div className="pf-vmc"><span className="pf-v">V {fmtUsd(vol)}</span> <span className="pf-mc">MC {fmtUsd(mc)}</span></div>
+                    <div className="pf-price">{fmtPrice(price)}</div>
+                    <div className="pf-tx">TX {fmtCount(txns)}</div>
                   </div>
                 </a>
               );
@@ -209,9 +228,7 @@ export default function Opportunities() {
           </div>
         )}
 
-        {err && coins.length > 0 && (
-          <div className="rc-note">{err}</div>
-        )}
+        {err && coins.length > 0 && <div className="rc-note">{err}</div>}
       </div>
       <div className="rc-note">
         Live movers from pump.fun — the same feed the bot scans. Tap a row to open it on pump.fun.
