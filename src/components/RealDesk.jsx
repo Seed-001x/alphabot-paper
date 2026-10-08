@@ -47,15 +47,17 @@ function KillSwitchBanner({ tripped }) {
 function RealHero({ book }) {
   const pnl = book.pnlUsd || 0;
   const pnlCls = pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
-  const startSol = book.startSol;
+  // v3.24: before first trade, show live on-chain balance (liveSol) instead of blanks
+  const startSol = book.startSol != null ? book.startSol : book.liveSol;
+  const balUsd = book.equity != null ? book.equity : null;
   return (
     <div className="panel real-hero">
       <h2 className="panel-title"><span className="rp-dot" /> REAL MONEY — live funds</h2>
       <div className="rh-grid">
         <div className="rh-stat">
           <span className="rh-label">balance</span>
-          <span className="rh-val">{fmtUsd(book.equity)}</span>
-          <span className="rh-sub">{fmtSol(book.equity != null && book.startUsd ? (book.equity / book.startUsd) * startSol : startSol)}</span>
+          <span className="rh-val">{balUsd != null ? fmtUsd(balUsd) : '—'}</span>
+          <span className="rh-sub">{startSol != null ? fmtSol(startSol) : '—'}</span>
         </div>
         <div className="rh-stat">
           <span className="rh-label">P&amp;L since start</span>
