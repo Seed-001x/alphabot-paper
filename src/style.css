@@ -297,7 +297,61 @@ input[type="range"].slider { flex: 1; accent-color: var(--acc); height: 26px; }
   .dash-grid, .rc-grid { grid-template-columns: 1fr; }
   .donut-row { grid-template-columns: 1fr; }
 }
-/* ---------- opportunities ---------- */
+/* ---------- opportunities (terminal movers cards) ---------- */
+.opp-filters {
+  border-bottom: 1px solid var(--border);
+  padding: 4px 0 12px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.opp-frow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.opp-flabel { font-size: 11px; font-weight: 700; color: var(--faint); text-transform: uppercase; letter-spacing: 1px; min-width: 44px; }
+.opp-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.opp-chip {
+  border: 1px solid var(--border); background: var(--card2); color: var(--dim);
+  border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+}
+.opp-chip:hover { color: var(--txt); border-color: var(--border2); }
+.opp-chip.on { background: rgba(139, 124, 246, 0.18); border-color: var(--acc); color: var(--txt); }
+.opp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.opp-card {
+  display: block;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color .15s, transform .15s;
+}
+.opp-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+.opp-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.opp-coin {
+  width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800; color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+.opp-id { flex: 1; min-width: 0; }
+.opp-sym { font-weight: 800; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opp-name { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opp-badge {
+  font-size: 10px; font-weight: 800; letter-spacing: 1px;
+  border-radius: 6px; padding: 3px 7px; flex-shrink: 0;
+}
+.opp-badge.grad { background: rgba(52, 211, 153, 0.15); color: var(--grn); border: 1px solid rgba(52,211,153,.3); }
+.opp-mc { font-size: 20px; font-weight: 800; color: var(--grn); margin-bottom: 8px; letter-spacing: .3px; }
+.opp-meta { display: flex; justify-content: space-between; align-items: center; }
+.opp-age { font-size: 12px; color: var(--dim); }
+.opp-open { font-size: 12px; color: var(--acc); font-weight: 600; }
+
+/* legacy list rows (unused, kept for safety) */
 .opp-row {
   display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center;
   background: var(--card2);
