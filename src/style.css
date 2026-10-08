@@ -51,6 +51,57 @@ a { color: var(--cyn); }
   text-shadow: 0 0 12px rgba(139,124,246, 0.8);
 }
 
+/* ---------- REAL/PAPER toggle ---------- */
+.rp-toggle-wrap {
+  display: flex; justify-content: center;
+  padding: 10px 12px 2px;
+}
+.rp-toggle {
+  display: flex; gap: 0;
+  border: 1px solid var(--line); border-radius: 12px;
+  overflow: hidden; background: var(--panel2);
+}
+.rp-tab {
+  font-family: var(--mono); font-size: 13px; font-weight: 700;
+  letter-spacing: 3px; padding: 10px 28px;
+  background: transparent; color: var(--dim);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  min-height: 44px;
+}
+.rp-tab.real.on {
+  background: rgba(45,212,191,.14); color: var(--cyn);
+  box-shadow: inset 0 0 18px rgba(45,212,191,.12);
+}
+.rp-tab.paper.on {
+  background: rgba(139,124,246,.14); color: var(--mag);
+  box-shadow: inset 0 0 18px rgba(139,124,246,.12);
+}
+.rp-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--cyn); box-shadow: 0 0 8px var(--cyn);
+  animation: rp-pulse 2s infinite;
+}
+@keyframes rp-pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+/* ---------- REAL desk ---------- */
+.real-hero .rh-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  margin-top: 12px;
+}
+.rh-stat { display: flex; flex-direction: column; gap: 4px; }
+.rh-label { font-size: 10px; letter-spacing: 2px; color: var(--faint); text-transform: uppercase; }
+.rh-val { font-size: 22px; font-weight: 700; }
+.rh-sub { font-size: 11px; color: var(--dim); }
+.kill-banner { text-align: center; letter-spacing: 1.5px; font-size: 11px; padding: 10px; }
+.kill-banner.armed { border-color: rgba(62,207,142,.35); color: var(--grn); }
+.kill-banner.tripped { border-color: rgba(240,102,94,.5); color: var(--red); }
+.kb-icon { margin-right: 6px; }
+@media (max-width: 560px) {
+  .real-hero .rh-grid { grid-template-columns: 1fr; gap: 8px; }
+  .rp-tab { padding: 10px 20px; font-size: 12px; }
+}
+
 /* ---------- header ---------- */
 .hdr {
   border-bottom: 1px solid var(--line);

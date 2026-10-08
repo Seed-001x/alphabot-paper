@@ -29,6 +29,7 @@ import {
 } from './lib/paper.js';
 import { Banner } from './components/Chrome.jsx';
 import { Positions } from './components/Feed.jsx';
+import RealDesk, { RealPaperToggle } from './components/RealDesk.jsx';
 import Settings from './components/Settings.jsx';
 import ControlPanel from './components/ControlPanel.jsx';
 import LearningRoom from './components/LearningRoom.jsx';
@@ -75,6 +76,13 @@ export default function App() {
   // v3.18: optimistic AGGRO toggle — flips instantly, server confirms on next poll.
   const [aggroLocal, setAggroLocal] = useState(null);
   const [chartToken, setChartToken] = useState(null);
+  // v3.24: REAL-money book — polled from /api/realbook in server mode.
+  // view: 'real' | 'paper'. Defaults to real when realMode is live.
+  const [realBook, setRealBook] = useState(null);
+  const [deskView, setDeskView] = useState(() => {
+    try { return localStorage.getItem('ab_desk_view') || 'real'; } catch { return 'real'; }
+  });
+  const deskViewRef = useRef(deskView);
   const backendRef = useRef(backend);
   const seenEvRef = useRef(new Set()); // dedupe for translated server events
 
@@ -213,6 +221,17 @@ export default function App() {
           ? { ...prev, data: s, checkedAt: Date.now() }
           : prev);
       }
+    } catch { /* a dead poll is fine — next one soon */ }
+  }, []);
+
+  // v3.24: live real-book poll — refresh real-money state every 10s
+  // in server mode. Read-only.
+  const pollRealBook = useCallback(async () => {
+    const b = backendRef.current;
+    if (b.mode !== 'server' || !b.url) return;
+    try {
+      const r = await fetch(`${b.url}/api/realbook`).then(x => x.json());
+      if (r && r.ok) setRealBook(r);
     } catch { /* a dead poll is fine — next one soon */ }
   }, []);
 
@@ -489,11 +508,13 @@ export default function App() {
     pollBackendEvents();
     serverPriceTick();
     pollPortfolio();
+    pollRealBook();
     const e = setInterval(pollBackendEvents, 10000);
     const p = setInterval(serverPriceTick, 30000);
     const pf = setInterval(pollPortfolio, 10000);
-    return () => { clearInterval(e); clearInterval(p); clearInterval(pf); };
-  }, [backend.mode, pollBackendEvents, serverPriceTick, pollPortfolio]);
+    const rb = setInterval(pollRealBook, 10000);
+    return () => { clearInterval(e); clearInterval(p); clearInterval(pf); clearInterval(rb); };
+  }, [backend.mode, pollBackendEvents, serverPriceTick, pollPortfolio, pollRealBook]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -511,6 +532,15 @@ export default function App() {
     setPaused(next);
     setPausedState(next);
   }
+
+  // v3.24: REAL/PAPER desk view — persisted, defaults to real when live.
+  function setView(v) {
+    setDeskView(v);
+    deskViewRef.current = v;
+    try { localStorage.setItem('ab_desk_view', v); } catch {}
+  }
+  const realLive = !!(realBook && realBook.enabled);
+  const effView = deskView === 'real' ? 'real' : 'paper';
 
   async function doReset() {
     // v3.8: SOL-denominated book — fetch live SOL once so the USD book value
@@ -543,7 +573,16 @@ export default function App() {
   return (
     <>
       <Banner />
-      <CommandCenter
+      {isServer && (
+        <RealPaperToggle view={effView} onChange={setView} realEnabled={realLive} />
+      )}
+      {effView === 'real' && isServer ? (
+        <main className="wrap">
+          <RealDesk book={realBook} priceMap={priceMap} onChart={setChartToken} />
+        </main>
+      ) : (
+        <>
+          <CommandCenter
         portfolio={dispPortfolio}
         priceMap={priceMap}
         stats={dispStats}
@@ -587,9 +626,13 @@ export default function App() {
         )}
         <Positions positions={dispPortfolio.positions} priceMap={priceMap} onChart={setChartToken} />
       </main>
+        </>
+      )}
 
       <footer className="foot">
-        ALPHABOT v2 · pump.fun desk · RugCheck + DexScreener · virtual P&amp;L is not real profit — not financial advice
+        {effView === 'real' && isServer
+          ? <>ALPHABOT v2 · <b style={{ color: 'var(--cyn)' }}>REAL MONEY</b> · on-chain fills — not financial advice</>
+          : <>ALPHABOT v2 · pump.fun desk · RugCheck + DexScreener · virtual P&amp;L is not real profit — not financial advice</>}
       </footer>
 
       <Settings
