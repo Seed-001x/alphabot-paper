@@ -381,6 +381,25 @@ input[type="range"].slider { flex: 1; accent-color: var(--acc); height: 26px; }
 .pf-movers { padding: 0; overflow: hidden; }
 .pf-movers .card-head { padding: 14px 14px 0; }
 .pf-movers .opp-filters { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.opp-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.opp-dd {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  color: var(--txt);
+  border-radius: 8px;
+  padding: 7px 28px 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239aa3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  max-width: 100%;
+}
+.opp-dd:focus { outline: none; border-color: var(--acc); }
+.opp-dd option { background: #161b26; color: #e8ecf4; }
 .pf-rows { display: flex; flex-direction: column; }
 .pf-row {
   display: flex; align-items: center; gap: 10px;

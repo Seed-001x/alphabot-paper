@@ -1,7 +1,7 @@
 // OPPORTUNITIES — pump.fun movers replica with full enriched data.
 // Row layout mirrors pump.fun's movers tab frame-by-frame:
 // [thumb] Name ✓ | V $vol  MC $mc(cyan) / TICKER 🌱 age 👥𝕏🌐 | price / 👤 holders | TX n
-// Polls /api/movers every 30s. Filters: min MC ($100K default), min age (5h default).
+// Polls /api/movers every 30s. Filters: MC range ($100K–$2M default), age range (5m–24h default).
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getBackendUrl } from '../lib/api.js';
 
@@ -71,18 +71,20 @@ function fmtPrice(v) {
   return '$' + v.toFixed(6);
 }
 
-const MC_PRESETS = [
-  { label: '50K', v: 50000 },
-  { label: '100K', v: 100000 },
-  { label: '250K', v: 250000 },
-  { label: '500K', v: 500000 },
-  { label: '1M', v: 1000000 },
+const MC_RANGES = [
+  { key: '100k-2m', label: '$100K – $2M', min: 100000, max: 2000000 },
+  { key: '100k-500k', label: '$100K – $500K', min: 100000, max: 500000 },
+  { key: '100k-1m', label: '$100K – $1M', min: 100000, max: 1000000 },
+  { key: '500k-5m', label: '$500K – $5M', min: 500000, max: 5000000 },
+  { key: '1m-plus', label: '$1M+', min: 1000000, max: Infinity },
+  { key: 'any', label: 'Any MC', min: 0, max: Infinity },
 ];
-const AGE_PRESETS = [
-  { label: '1h', v: 1 },
-  { label: '5h', v: 5 },
-  { label: '12h', v: 12 },
-  { label: '24h', v: 24 },
+const AGE_RANGES = [
+  { key: '5m-24h', label: '5m – 24h', minMs: 5 * 60e3, maxMs: 24 * 3600e3 },
+  { key: '5m-1h', label: '5m – 1h', minMs: 5 * 60e3, maxMs: 3600e3 },
+  { key: '1h-24h', label: '1h – 24h', minMs: 3600e3, maxMs: 24 * 3600e3 },
+  { key: '5h-24h', label: '5h – 24h', minMs: 5 * 3600e3, maxMs: 24 * 3600e3 },
+  { key: 'any', label: 'Any age', minMs: 0, maxMs: Infinity },
 ];
 
 export default function Opportunities() {
@@ -90,8 +92,8 @@ export default function Opportunities() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [updatedAt, setUpdatedAt] = useState(null);
-  const [minMc, setMinMc] = useState(100000);
-  const [minAgeH, setMinAgeH] = useState(5);
+  const [mcRange, setMcRange] = useState('100k-2m');
+  const [ageRange, setAgeRange] = useState('5m-24h');
   const [sortBy, setSortBy] = useState('recent'); // 'recent' | 'mc'
 
   const load = useCallback(async () => {
@@ -117,11 +119,15 @@ export default function Opportunities() {
 
   const visible = useMemo(() => {
     const now = Date.now();
-    const minAgeMs = minAgeH * 3600e3;
+    const mcR = MC_RANGES.find(r => r.key === mcRange) || MC_RANGES[0];
+    const ageR = AGE_RANGES.find(r => r.key === ageRange) || AGE_RANGES[0];
     const out = coins.filter(c => {
       const mc = c.usdMc ?? 0;
-      if (!(mc >= minMc)) return false;
-      if (c.createdAt && now - c.createdAt < minAgeMs) return false;
+      if (!(mc >= mcR.min && mc <= mcR.max)) return false;
+      if (c.createdAt) {
+        const ageMs = now - c.createdAt;
+        if (!(ageMs >= ageR.minMs && ageMs <= ageR.maxMs)) return false;
+      }
       return true;
     });
     if (sortBy === 'mc') {
@@ -129,7 +135,7 @@ export default function Opportunities() {
     }
     // 'recent' keeps feed order (already sorted by last trade)
     return out;
-  }, [coins, minMc, minAgeH, sortBy]);
+  }, [coins, mcRange, ageRange, sortBy]);
 
   return (
     <div className="col">
@@ -140,40 +146,42 @@ export default function Opportunities() {
         </div>
 
         <div className="opp-filters">
-          <div className="opp-frow">
-            <span className="opp-flabel">MC ≥</span>
-            <div className="opp-chips">
-              {MC_PRESETS.map(p => (
-                <button key={p.v} className={'opp-chip' + (minMc === p.v ? ' on' : '')}
-                  onClick={() => setMinMc(p.v)}>${p.label}</button>
-              ))}
-            </div>
-          </div>
-          <div className="opp-frow">
-            <span className="opp-flabel">Age ≥</span>
-            <div className="opp-chips">
-              {AGE_PRESETS.map(p => (
-                <button key={p.v} className={'opp-chip' + (minAgeH === p.v ? ' on' : '')}
-                  onClick={() => setMinAgeH(p.v)}>{p.label}</button>
-              ))}
-            </div>
-          </div>
-          <div className="opp-frow">
-            <span className="opp-flabel">Sort</span>
-            <div className="opp-chips">
-              <button className={'opp-chip' + (sortBy === 'recent' ? ' on' : '')}
-                onClick={() => setSortBy('recent')}>Movers</button>
-              <button className={'opp-chip' + (sortBy === 'mc' ? ' on' : '')}
-                onClick={() => setSortBy('mc')}>Top MC</button>
-            </div>
-          </div>
+          <select
+            className="opp-dd"
+            value={mcRange}
+            onChange={e => setMcRange(e.target.value)}
+            aria-label="MC range"
+          >
+            {MC_RANGES.map(r => (
+              <option key={r.key} value={r.key}>{r.label}</option>
+            ))}
+          </select>
+          <select
+            className="opp-dd"
+            value={ageRange}
+            onChange={e => setAgeRange(e.target.value)}
+            aria-label="Age range"
+          >
+            {AGE_RANGES.map(r => (
+              <option key={r.key} value={r.key}>{r.label}</option>
+            ))}
+          </select>
+          <select
+            className="opp-dd"
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            aria-label="Sort"
+          >
+            <option value="recent">Movers</option>
+            <option value="mc">Top MC</option>
+          </select>
         </div>
 
         {loading && <div className="empty">loading movers…</div>}
         {!loading && err && coins.length === 0 && <div className="empty">{err}</div>}
         {!loading && !err && visible.length === 0 && (
           <div className="empty">
-            {coins.length > 0 ? 'no coins pass the filters — loosen MC or age' : 'no movers right now — check back soon'}
+            {coins.length > 0 ? 'no coins pass the filters — try a wider MC or age range' : 'no movers right now — check back soon'}
           </div>
         )}
 
