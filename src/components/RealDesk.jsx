@@ -136,7 +136,6 @@ function RealTrades({ closed }) {
             <tbody>
               {list.slice(0, 60).map((c, i) => (
                 <tr key={(c.exitTxSig || c.mint) + i}>
-                >
                   <td><b>{c.symbol}</b> <span className="badge enter" style={{ fontSize: 9 }}>REAL</span></td>
                   <td className={c.pnlUsd >= 0 ? 'pnl-pos' : 'pnl-neg'}>{fmtUsd(c.pnlUsd)}</td>
                   <td>{(c.multiple || 1).toFixed(2)}x</td>
