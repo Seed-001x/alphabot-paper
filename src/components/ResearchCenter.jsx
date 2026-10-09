@@ -3,7 +3,7 @@
 // wallets are actually buying, fetched live from /api/whales.
 // Synthesize hands findings to the trading bot when ready.
 import { useEffect, useRef, useState } from 'react';
-import { trySynthesize, fetchWhales, fetchWhaleBuys } from '../lib/api.js';
+import { synthesizeResearch, fetchWhales, fetchWhaleBuys } from '../lib/api.js';
 
 // The user's own wallet — tagged in the feed so their own buys stand out.
 const USER_WALLET = 'BPabbM6hwqQxxfHt3rVKTN2K4NaU1jZY2GWuFj6ZCBv6';
@@ -144,7 +144,9 @@ function WhaleRow({ w, apiBase, expanded, onToggle }) {
         <span style={{ marginLeft: 'auto', color: '#8b93a7', fontSize: 11 }}>{expanded ? '▾' : '▸'}</span>
       </div>
       <div style={{ marginTop: 4, fontSize: 12 }}>
-        {w.error ? (
+        {w.pending ? (
+          <span style={{ color: '#fbbf24' }}>syncing — first poll in progress…</span>
+        ) : w.error ? (
           <span style={{ color: '#f87171' }}>feed error — retrying</span>
         ) : lb ? (
           <span>
@@ -238,6 +240,7 @@ export default function ResearchCenter({ apiBase }) {
   const canvasRef = useRef(null);
   const [synthState, setSynthState] = useState('idle'); // idle | working | done | missing
   const [synthMsg, setSynthMsg] = useState('');
+  const [synthData, setSynthData] = useState(null);
   const [stats, setStats] = useState({ count: 0, buys24h: 0 });
   const [feedLive, setFeedLive] = useState(false);
   useWhaleCanvas(canvasRef, stats.buys24h);
@@ -247,13 +250,18 @@ export default function ResearchCenter({ apiBase }) {
   const doSynthesize = async () => {
     setSynthState('working');
     setSynthMsg('');
-    const r = await trySynthesize(apiBase);
-    if (r && r.ok) {
+    setSynthData(null);
+    try {
+      const r = await synthesizeResearch(apiBase);
+      setSynthData(r);
       setSynthState('done');
-      setSynthMsg('Findings handed to the trading bot.');
-    } else {
+      const n = (r.tokens || []).length;
+      setSynthMsg(n > 0
+        ? `${n} token${n === 1 ? '' : 's'} with whale accumulation in the last 24h.`
+        : 'No tokens with 2+ whale buys in the last 24h — research keeps collecting.');
+    } catch (e) {
       setSynthState('missing');
-      setSynthMsg('Synthesis endpoint isn\u2019t wired on the backend yet — research keeps collecting.');
+      setSynthMsg('Synthesis failed: ' + (e.message || 'unavailable'));
     }
   };
 
@@ -279,6 +287,27 @@ export default function ResearchCenter({ apiBase }) {
             {synthState === 'working' ? 'SYNTHESIZING…' : '⟡ SYNTHESIZE FINDINGS'}
           </button>
           {synthMsg && <div className={'set-msg ' + (synthState === 'done' ? 'ok' : 'err')}>{synthMsg}</div>}
+          {synthState === 'done' && synthData && (synthData.tokens || []).length > 0 && (
+            <div className="rc-log" style={{ marginTop: 8 }}>
+              {(synthData.tokens || []).map(t => (
+                <div className="rc-line" key={t.mint} style={{ color: '#e6eaf2' }}>
+                  <span style={{ color: '#34d399', fontWeight: 700 }}>{t.symbol || '?'}</span>
+                  {' '}· {fmtMc(t.mc)} ·{' '}
+                  <span style={{ color: '#fbbf24' }}>{t.walletCount} wallets</span>
+                  {' '}· {t.totalSol} SOL · last buy {timeAgo(t.lastBuyTs)}
+                  <div style={{ color: '#8b93a7', fontSize: 11 }}>
+                    {(t.wallets || []).map(w => w.short).join('  ')}
+                  </div>
+                </div>
+              ))}
+              {synthData.walletCoverage && (
+                <div className="rc-line" style={{ color: '#8b93a7', fontSize: 11 }}>
+                  scanned {synthData.walletCoverage.cachedWallets} wallets with cached data
+                  ({synthData.walletCoverage.withData} with recent buys)
+                </div>
+              )}
+            </div>
+          )}
           <div className="rc-note">
             Real on-chain buys from tracked smart-money wallets. Read-only —
             it never touches the trading bot. When you decide there\u2019s enough,

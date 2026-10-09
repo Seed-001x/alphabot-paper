@@ -88,6 +88,14 @@ export async function trySynthesize(base) {
   }
 }
 
+// POST /api/research/synthesize — whale accumulation signals (2+ tracked
+// wallets buying the same token in the last 24h). Read-only.
+export async function synthesizeResearch(base) {
+  const d = await postJson(`${base}/api/research/synthesize`, {}, 60000);
+  if (!d || d.ok !== true) throw new Error((d && d.error) || 'bad synthesize payload');
+  return d;
+}
+
 // ---- whale watch (Research Center — real data) ----
 export async function fetchWhales(base) {
   const d = await getJson(`${base}/api/whales`, 30000);

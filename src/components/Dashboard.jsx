@@ -7,12 +7,13 @@ import {
 import Sparkline from './Sparkline.jsx';
 import EquityChart from './EquityChart.jsx';
 
-function KillBanner({ tripped }) {
+function KillBanner({ tripped, disabled }) {
+  if (disabled) return null;
   return (
     <div className={'kill-banner' + (tripped ? ' tripped' : ' armed')}>
       {tripped
-        ? '🛑 KILL SWITCH TRIPPED — trading halted. Re-enable from Settings.'
-        : '🛡 Kill switch armed — auto-halt if equity drops 50%'}
+        ? '🛑 KILL SWITCH TRIPPED — equity hit $11 floor. Trading halted.'
+        : '🛡 Kill switch armed — auto-halt if equity hits $11'}
     </div>
   );
 }
@@ -273,7 +274,7 @@ function Guardrails({ book }) {
         <div className="leg-row"><span>Max positions</span><span className="lv">{g.maxPositions ?? '—'}</span></div>
         <div className="leg-row"><span>Per-trade cap</span><span className="lv">{g.maxSizePct != null ? Math.round(g.maxSizePct * 100) + '%' : '—'}</span></div>
         <div className="leg-row"><span>Kill switch</span><span className="lv">−{g.killSwitchDrawdown != null ? Math.round(g.killSwitchDrawdown * 100) : 50}%</span></div>
-        <div className="leg-row"><span>Status</span><span className="lv" style={{ color: book.killSwitched ? '#f43f5e' : '#34d399' }}>{book.killSwitched ? 'TRIPPED' : 'ARMED'}</span></div>
+        <div className="leg-row"><span>Status</span><span className="lv" style={{ color: book.killSwitched ? '#f43f5e' : '#34d399' }}>{book.killSwitched ? 'TRIPPED' : 'ARMED ($11)'}</span></div>
       </div>
     </div>
   );
@@ -283,7 +284,7 @@ export default function Dashboard({ book, apiBase, onChanged }) {
   if (!book) return <div className="loading">connecting to live book…</div>;
   return (
     <>
-      <KillBanner tripped={!!book.killSwitched} />
+      <KillBanner tripped={!!book.killSwitched} disabled={false} />
       <div className="dash-grid">
         <div className="col">
           <Positions positions={book.positions} apiBase={apiBase} onChanged={onChanged} updatedTs={book.ts} />
