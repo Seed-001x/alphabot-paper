@@ -17,7 +17,8 @@ const MC_PRESETS = [
   { label: '$1M', v: 1000000 },
 ];
 
-// [tuning key, label, hint, {pct, step}]
+// [tuning key, label, hint, {pct, pctWhole, step}]
+// pct = fraction in backend (0.1 = 10%) · pctWhole = whole number in backend (60 = 60%)
 const RISK_FIELDS = [
   ['takeProfit', 'Take profit', 'per-trade target', { pct: true }],
   ['stopLoss', 'Stop loss', 'per-trade max loss', { pct: true }],
@@ -27,9 +28,9 @@ const RISK_FIELDS = [
   ['cooldownMin', 'Cooldown (min)', 'between entries', { step: 1 }],
   ['minVol24hUsd', 'Min 24h volume ($)', 'liquidity floor', { step: 100 }],
   ['minMc', 'Min market cap ($)', 'vetting floor', { step: 1000 }],
-  ['maxTopHolderPct', 'Max top holder (%)', 'concentration kill', { pct: true }],
-  ['maxTop10Pct', 'Max top-10 holders (%)', 'concentration kill', { pct: true }],
-  ['maxDevPct', 'Max dev holding (%)', 'dev concentration kill', { pct: true }],
+  ['maxTopHolderPct', 'Max top holder (%)', 'concentration kill', { pctWhole: true }],
+  ['maxTop10Pct', 'Max top-10 holders (%)', 'concentration kill', { pctWhole: true }],
+  ['maxDevPct', 'Max dev holding (%)', 'dev concentration kill', { pctWhole: true }],
 ];
 
 function Toggle({ on, disabled, onFlip }) {
@@ -85,6 +86,7 @@ function KeySection({ title, note, storageKey }) {
 
 export default function SettingsPage({ book, onBackendChange }) {
   const [tuning, setTuning] = useState(null);
+  const [liveCfg, setLiveCfg] = useState(null);
   const [draft, setDraft] = useState({});
   const [busy, setBusy] = useState(null);
   const [msg, setMsg] = useState({ t: '', ok: true });
@@ -95,6 +97,11 @@ export default function SettingsPage({ book, onBackendChange }) {
   useEffect(() => {
     if (!base) return;
     fetchTuning(base).then(t => { setTuning(t); setScore(t.minTokenScore); }).catch(() => {});
+    // v3.38: also fetch live-config so the UI shows what the bot ACTUALLY uses
+    // (freethinker clamps, flat size, fees) — not just the tuning base values.
+    fetch(`${base}/api/live-config`).then(r => r.json()).then(c => {
+      if (c && c.ok) setLiveCfg(c);
+    }).catch(() => {});
   }, [base]);
 
   const run = async (key, fn, okMsg) => {
@@ -118,13 +125,16 @@ export default function SettingsPage({ book, onBackendChange }) {
   const setField = (k, raw, meta) => {
     let v = Number(raw);
     if (isNaN(v)) return;
-    if (meta.pct) v = v / 100;
+    if (meta.pct) v = v / 100; // fraction fields: 10 → 0.1
+    // pctWhole fields: stored as-is (60 → 60)
     setDraft(d => ({ ...d, [k]: v }));
   };
   const dispVal = (k, meta) => {
     const v = draft[k] != null ? draft[k] : tuning ? tuning[k] : null;
     if (v == null) return '';
-    return meta.pct ? +(v * 100).toFixed(2) : v;
+    if (meta.pct) return +(v * 100).toFixed(2); // fraction → percent display
+    if (meta.pctWhole) return +v.toFixed(2); // already percent
+    return v;
   };
   const dirtyCount = Object.keys(draft).length;
   const doSaveRisk = () => run('risk', () => patchTuning(base, draft).then(t => { setDraft({}); return t; }), 'Risk parameters saved.');
@@ -174,6 +184,19 @@ export default function SettingsPage({ book, onBackendChange }) {
       {/* risk */}
       <div className="card">
         <div className="set-sec-title">RISK PARAMETERS</div>
+        {/* v3.38: show what the bot ACTUALLY uses (freethinker clamps, flat size, fees)
+            — the tuning values above are the base; the live config is the truth. */}
+        {liveCfg && (
+          <div className="live-cfg-box">
+            <div className="live-cfg-title">● LIVE — what the bot actually uses</div>
+            <div className="live-cfg-grid">
+              <div><span>Size</span><b>{liveCfg.sizes.flat} SOL flat</b></div>
+              <div><span>Stop loss</span><b>{Math.round(liveCfg.sl.min * 100)}–{Math.round(liveCfg.sl.max * 100)}%</b></div>
+              <div><span>Take profit</span><b>{liveCfg.tp.min}x–{liveCfg.tp.max}x</b></div>
+              <div><span>Fees</span><b>{(liveCfg.fees.priorityLamports / 1e9).toFixed(4)} + {(liveCfg.fees.jitoTipLamports / 1e9).toFixed(4)} SOL</b></div>
+            </div>
+          </div>
+        )}
         {RISK_FIELDS.map(([k, label, hint, meta]) => (
           <div className="set-row" key={k}>
             <div><div className="set-label">{label}</div><div className="set-hint">{hint}</div></div>
@@ -182,8 +205,8 @@ export default function SettingsPage({ book, onBackendChange }) {
               placeholder="—" />
           </div>
         ))}
-        <button className="save-btn" disabled={!dirtyCount || busy === 'risk' || !base} onClick={doSaveRisk}>
-          {busy === 'risk' ? 'Saving…' : `Save${dirtyCount ? ` (${dirtyCount})` : ''}`}
+        <button className="save-btn save-btn-big" disabled={busy === 'risk' || !base} onClick={doSaveRisk}>
+          {busy === 'risk' ? 'Saving…' : dirtyCount ? `💾 SAVE (${dirtyCount} change${dirtyCount > 1 ? 's' : ''})` : '💾 SAVE'}
         </button>
         {msg.t && <div className={'set-msg ' + (msg.ok ? 'ok' : 'err')}>{msg.t}</div>}
       </div>
